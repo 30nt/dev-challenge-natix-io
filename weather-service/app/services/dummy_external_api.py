@@ -8,7 +8,7 @@ from datetime import datetime, UTC, timedelta
 from typing import Dict, Any, List, Optional
 
 from app.definitions.data_sources import WeatherCondition, WindDirections
-from app.utils.circuit_breaker import circuit_breaker
+from app.utils.circuit_breaker import CircuitBreaker
 
 
 class RateLimitTracker:
@@ -134,6 +134,13 @@ class DummyWeatherAPI:
         """Initialize the dummy weather API with rate limiting."""
         self.request_count = 0
         self.rate_limiter = RateLimitTracker(requests_per_hour=100)
+        self.circuit_breaker = CircuitBreaker(
+            failure_threshold=3,
+            recovery_timeout=30,
+            expected_exception=ValueError,
+            name="weather_api",
+        )
+        self._fetch_weather_wrapped = self.circuit_breaker(self._fetch_weather_impl)
 
     def get_weather_pattern(self, city: str) -> Dict[str, Any]:
         """Get weather pattern for a city."""
@@ -267,12 +274,6 @@ class DummyWeatherAPI:
             },
         }
 
-    @circuit_breaker(
-        failure_threshold=3,
-        recovery_timeout=30,
-        expected_exception=ValueError,
-        name="weather_api",
-    )
     async def fetch_weather(self, city: str) -> Dict[str, Any]:
         """
         Async method to fetch weather data with rate limiting.
@@ -282,7 +283,10 @@ class DummyWeatherAPI:
         - Network delays
         - Occasional failures
         """
+        return await self._fetch_weather_wrapped(city)
 
+    async def _fetch_weather_impl(self, city: str) -> Dict[str, Any]:
+        """Internal implementation of fetch_weather."""
         if not self.rate_limiter.can_make_request():
             remaining_time = self.rate_limiter.get_reset_time() - datetime.now(UTC)
             remaining_seconds = int(remaining_time.total_seconds())

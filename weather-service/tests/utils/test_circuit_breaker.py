@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from app.utils.circuit_breaker import CircuitBreaker, CircuitState, circuit_breaker
+from app.utils.circuit_breaker import CircuitBreaker, CircuitState
 from app.exceptions import CircuitBreakerOpenException
 
 
@@ -78,22 +78,26 @@ class TestCircuitBreaker:
         assert result == "success"
         assert cb.state == CircuitState.CLOSED.value
 
-    def test_decorator_factory(self):
-        """Test circuit breaker decorator factory."""
+    def test_decorator_usage(self):
+        """Test circuit breaker as decorator."""
+        cb = CircuitBreaker(
+            failure_threshold=2, recovery_timeout=30, name="test_breaker"
+        )
 
-        @circuit_breaker(failure_threshold=2, recovery_timeout=30, name="test_breaker")
+        @cb
         async def decorated_operation():
             return "success"
 
         assert asyncio.run(decorated_operation()) == "success"
 
     def test_sync_function_wrapper(self):
-        """Test circuit breaker with synchronous functions."""
+        """Test that circuit breaker raises error for sync functions."""
         cb = CircuitBreaker(failure_threshold=2)
 
-        @cb
-        def sync_operation():
-            return "sync_success"
+        with pytest.raises(
+            ValueError, match="Circuit breaker only supports async functions"
+        ):
 
-        result = sync_operation()
-        assert result == "sync_success"
+            @cb
+            def sync_operation():
+                return "sync_success"

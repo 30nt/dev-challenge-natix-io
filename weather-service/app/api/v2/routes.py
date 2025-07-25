@@ -16,7 +16,7 @@ from app.schemas.api_v2 import (
 )
 from app.services.weather_service import WeatherService, ApiVersion
 from app.utils.logger import setup_logger
-from app.utils.circuit_breaker import get_circuit_breaker
+from app.services.dummy_external_api import dummy_weather_api
 
 
 logger = setup_logger(__name__)
@@ -70,8 +70,7 @@ async def health_check(request: Request):
     except Exception:
         redis_status = "unhealthy"
 
-    circuit_breaker = get_circuit_breaker("weather_api")
-    circuit_status = circuit_breaker.state if circuit_breaker else "unknown"
+    circuit_status = dummy_weather_api.circuit_breaker.state
 
     return HealthResponse(
         status="healthy" if redis_status == "healthy" else "degraded",
@@ -92,13 +91,9 @@ async def get_metrics(request: Request):
     top_cities = await container.stats_tracker.get_top_cities(10)
     rate_limit_remaining = await container.rate_limiter.get_rate_limit_remaining()
 
-    circuit_breaker = get_circuit_breaker("weather_api")
-
     return MetricsResponse(
         rate_limit_remaining=rate_limit_remaining,
         rate_limit_window_seconds=settings.rate_limit_window,
-        circuit_breaker_status=(
-            circuit_breaker.state if circuit_breaker else "unknown"
-        ),
+        circuit_breaker_status=dummy_weather_api.circuit_breaker.state,
         top_cities=[{"city": city, "requests": count} for city, count in top_cities],
     )

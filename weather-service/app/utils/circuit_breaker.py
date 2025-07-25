@@ -1,5 +1,5 @@
 """
-This module implements a circuit breaker pattern.
+Simplified circuit breaker implementation for protecting external service calls.
 """
 
 import asyncio
@@ -11,8 +11,6 @@ from app.utils.logger import setup_logger
 from app.exceptions import CircuitBreakerOpenException
 
 logger = setup_logger(__name__)
-
-_circuit_breakers = {}
 
 
 class CircuitState(Enum):
@@ -88,10 +86,14 @@ class CircuitBreaker:
         return self._state
 
     def __call__(self, func: Callable) -> Callable:
-        """Decorator to wrap functions with circuit breaker protection."""
+        """Decorator to wrap async functions with circuit breaker protection."""
+        if not asyncio.iscoroutinefunction(func):
+            raise ValueError(
+                f"Circuit breaker only supports async functions, got {func}"
+            )
 
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs):
             state = self._get_state()
 
             if state == CircuitState.OPEN:
@@ -100,67 +102,11 @@ class CircuitBreaker:
                 raise CircuitBreakerOpenException(error_msg)
 
             try:
-                if asyncio.iscoroutinefunction(func):
-                    result = await func(*args, **kwargs)
-                else:
-                    result = func(*args, **kwargs)
-
+                result = await func(*args, **kwargs)
                 self._record_success()
                 return result
-
             except self.expected_exception as e:
                 self._record_failure()
                 raise e
 
-        @wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            state = self._get_state()
-
-            if state == CircuitState.OPEN:
-                error_msg = f"Circuit breaker '{self.name}' is OPEN"
-                logger.error(error_msg)
-                raise CircuitBreakerOpenException(error_msg)
-
-            try:
-                result = func(*args, **kwargs)
-                self._record_success()
-                return result
-
-            except self.expected_exception as e:
-                self._record_failure()
-                raise e
-
-        return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
-
-
-def circuit_breaker(
-    failure_threshold: int = 5,
-    recovery_timeout: int = 60,
-    expected_exception: Optional[type[Exception]] = None,
-    name: str = "CircuitBreaker",
-) -> Callable:
-    """
-    Decorator factory for circuit breaker.
-
-    Usage:
-        @circuit_breaker(failure_threshold=3, recovery_timeout=30)
-        async def external_api_call():
-            ...
-    """
-
-    def decorator(func: Callable) -> Callable:
-        breaker = CircuitBreaker(
-            failure_threshold=failure_threshold,
-            recovery_timeout=recovery_timeout,
-            expected_exception=expected_exception,
-            name=name,
-        )
-        _circuit_breakers[name] = breaker
-        return breaker(func)
-
-    return decorator
-
-
-def get_circuit_breaker(name: str) -> Optional[CircuitBreaker]:
-    """Get a circuit breaker by name from the global registry."""
-    return _circuit_breakers.get(name)
+        return wrapper

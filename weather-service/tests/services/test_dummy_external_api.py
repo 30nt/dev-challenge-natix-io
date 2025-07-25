@@ -198,10 +198,13 @@ class TestDummyWeatherAPI:
 
     @pytest.mark.asyncio
     async def test_fetch_weather_with_circuit_breaker(self):
-        """Test that fetch_weather is decorated with circuit breaker."""
+        """Test that fetch_weather uses circuit breaker."""
         api = DummyWeatherAPI()
 
-        assert hasattr(api.fetch_weather, "__wrapped__")
+        assert hasattr(api, "circuit_breaker")
+        assert api.circuit_breaker.name == "weather_api"
+        assert api.circuit_breaker.failure_threshold == 3
+        assert api.circuit_breaker.recovery_timeout == 30
 
     def test_get_rate_limit_info(self):
         """Test getting rate limit information."""

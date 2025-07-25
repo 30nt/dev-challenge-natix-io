@@ -1,8 +1,11 @@
 """
-Rate limiting service using Redis.
+Rate limiting service using Redis with atomic operations.
 """
 
 import redis.asyncio as redis
+from limits.storage import RedisStorage
+from limits.strategies import MovingWindowRateLimiter
+from limits.util import parse_many
 
 from app.config import get_settings
 from app.utils.logger import setup_logger
@@ -13,76 +16,85 @@ settings = get_settings()
 
 class RateLimitService:
     """
-    Service responsible for distributed rate limiting using Redis.
+    Service responsible for distributed rate limiting using Redis with atomic operations.
 
-    Uses a simple counter/stack approach: initialize with max tokens (100),
-    decrement on each external API call, reset when window expires.
+    Uses the 'limits' library which provides thread-safe, atomic operations
+    and supports moving window rate limiting for better request distribution.
     """
 
-    def __init__(self, redis_client: redis.Redis):
+    def __init__(self, redis_client: redis.Redis = None):
         """
-        Initialize rate limit service.
+        Initialize rate limit service with Redis backend.
 
         Args:
-            redis_client: Redis client instance
+            redis_client: Redis client instance (kept for backward compatibility)
         """
-        self.redis_client = redis_client
+        # Initialize Redis storage for the limits library
+        self.storage = RedisStorage(settings.redis_url)
 
-    async def get_rate_limit_remaining(self) -> int:
+        # Create rate limiter with moving window strategy
+        # This provides better distribution than fixed window
+        self.limiter = MovingWindowRateLimiter(self.storage)
+
+        # Parse rate limit from settings (e.g., "100 per 3600 seconds")
+        self.rate_limit_str = (
+            f"{settings.rate_limit_requests} per {settings.rate_limit_window} seconds"
+        )
+        self.rate_limits = parse_many(self.rate_limit_str)
+
+        logger.info("Initialized rate limiter with limit: %s", self.rate_limit_str)
+
+    async def get_rate_limit_remaining(self, identifier: str = "global") -> int:
         """
-        Get remaining rate limit tokens.
-        """
-        try:
-            key = "rate_limit:tokens"
-            tokens = await self.redis_client.get(key)
-            return int(tokens) if tokens else settings.rate_limit_requests
+        Get remaining rate limit tokens for the given identifier.
 
-        except redis.ConnectionError:
-            logger.error("Redis connection failed while getting rate limit")
-            raise
-        except redis.TimeoutError:
-            logger.warning("Redis timeout while getting rate limit")
-            return 0
-        except ValueError as e:
-            logger.error("Invalid token value in Redis: %s", e)
-            return 0
-        except Exception as e:
-            logger.error("Unexpected error getting rate limit: %s", e)
-            return 0
+        Args:
+            identifier: Unique identifier for rate limiting (default: "global")
 
-    async def consume_rate_limit_token(self) -> bool:
-        """
-        Consume a rate limit token.
-
-        Uses simple Redis operations - initializes bucket if needed.
-        Small race condition possible but acceptable for 100/hour rate.
+        Returns:
+            Number of remaining tokens
         """
         try:
-            key = "rate_limit:tokens"
+            # Get the window stats for the first (and usually only) rate limit
+            rate_limit = self.rate_limits[0]
 
-            # Check if bucket exists
-            current = await self.redis_client.get(key)
-            if current is None:
-                # Initialize bucket with max tokens
-                await self.redis_client.setex(
-                    key, settings.rate_limit_window, settings.rate_limit_requests
-                )
-                current = str(settings.rate_limit_requests)
+            # Get current usage
+            _, current_usage = self.limiter.get_window_stats(rate_limit, identifier)
 
-            # Try to consume token
-            remaining = int(current)
-            if remaining > 0:
-                await self.redis_client.decr(key)
-                return True
+            # Calculate remaining
+            remaining = max(0, rate_limit.amount - current_usage)
 
-            return False
+            return remaining
 
-        except redis.ConnectionError:
-            logger.error("Redis connection failed while consuming rate limit token")
-            raise
-        except redis.TimeoutError:
-            logger.warning("Redis timeout while consuming rate limit token")
-            return False
         except Exception as e:
-            logger.error("Unexpected error consuming rate limit token: %s", e)
+            logger.error("Error getting rate limit remaining: %s", e)
+            return 0
+
+    async def consume_rate_limit_token(self, identifier: str = "global") -> bool:
+        """
+        Consume a rate limit token for the given identifier.
+
+        This method is atomic and thread-safe, eliminating race conditions.
+
+        Args:
+            identifier: Unique identifier for rate limiting (default: "global")
+
+        Returns:
+            True if token was consumed, False if rate limit exceeded
+        """
+        try:
+            # Check all rate limits (supports multiple limits if needed)
+            for rate_limit in self.rate_limits:
+                if not self.limiter.hit(rate_limit, identifier):
+                    logger.warning(
+                        "Rate limit exceeded for %s: %s", identifier, rate_limit
+                    )
+                    return False
+
+            logger.debug("Rate limit token consumed for %s", identifier)
+            return True
+
+        except Exception as e:
+            logger.error("Error consuming rate limit token: %s", e)
+            # Fail closed for safety
             return False

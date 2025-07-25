@@ -17,6 +17,8 @@ python-dotenv = "^1.0.0"
 tenacity = "^8.2.3"
 prometheus-fastapi-instrumentator = "^6.1.0"
 python-json-logger = "^2.0.7"
+slowapi = "^0.1.9"
+limits = "^3.7.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.4"
@@ -46,7 +48,9 @@ disable = [
     "too-many-positional-arguments",
     "missing-function-docstring",
     "missing-class-docstring",
-    "unused-argument"
+    "unused-argument",
+    "redefined-outer-name",
+    "protected-access"
 ]
 
 [tool.pylint.format]

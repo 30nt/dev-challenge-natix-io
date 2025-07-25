@@ -89,7 +89,7 @@ async def health_check(request: Request):
 @router.get("/metrics", response_model=MetricsResponse)
 async def get_metrics(request: Request):
     """
-    Metrics endpoint that returns performance and usage statistics.
+    Metrics endpoint that returns rate limit status and top requested cities.
     """
     top_cities = await container.stats_tracker.get_top_cities(10)
     rate_limit_remaining = await container.rate_limiter.get_rate_limit_remaining()
@@ -97,15 +97,8 @@ async def get_metrics(request: Request):
     circuit_breaker = get_circuit_breaker("weather_api")
 
     return MetricsResponse(
-        cache_hit_rate=75.5,
-        total_requests=10000,
-        cache_hits=7550,
-        cache_misses=2450,
-        external_api_calls=100,
         rate_limit_remaining=rate_limit_remaining,
         rate_limit_window_seconds=settings.rate_limit_window,
-        average_response_time_ms=45.2,
-        error_rate=0.5,
         circuit_breaker_status=(
             circuit_breaker.state if circuit_breaker else "unknown"
         ),

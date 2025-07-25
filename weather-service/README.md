@@ -1,6 +1,8 @@
-# Weather Service API
+# Weather Service API (Demo)
 
 A resilient weather service API built with FastAPI and Redis that efficiently serves weather data while respecting external API rate limits.
+
+**🔍 This is a demonstration application that uses realistic mock weather data instead of connecting to real external weather APIs.**
 
 ## Features
 

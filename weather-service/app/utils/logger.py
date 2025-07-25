@@ -11,10 +11,10 @@ settings = get_settings()
 def setup_logger(name: str) -> logging.Logger:
     """
     Set up a logger with JSON formatting for structured logging.
-    
+
     Args:
         name: The name of the logger (usually __name__)
-    
+
     Returns:
         Configured logger instance
     """
@@ -30,7 +30,7 @@ def setup_logger(name: str) -> logging.Logger:
 
     formatter = jsonlogger.JsonFormatter(
         fmt="%(asctime)s %(name)s %(levelname)s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
     handler.setFormatter(formatter)
 

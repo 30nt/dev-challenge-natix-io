@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("Shutting down Weather Service API...")
 
-    if hasattr(app.state, 'cache_warmer_task'):
+    if hasattr(app.state, "cache_warmer_task"):
         app.state.cache_warmer_task.cancel()
 
     await cache_service.close()
@@ -47,7 +47,7 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
 )
 
 app.add_middleware(
@@ -75,5 +75,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=True,
-        log_level=settings.log_level.lower()
+        log_level=settings.log_level.lower(),
     )

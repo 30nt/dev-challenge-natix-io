@@ -2,16 +2,15 @@ from datetime import datetime, UTC
 
 from fastapi import APIRouter, Query, Request, HTTPException, Depends
 
+from app.api.v2.crud import WeatherCRUDV2
 from app.config import get_settings
 from app.middleware.dependency_container import container
 from app.schemas.api_v2 import (
     WeatherResponseV2,
-    WeatherMetadata,
     HealthResponse,
     MetricsResponse,
 )
-from app.services.external_api import weather_api_client
-from app.services.weather_service import WeatherService
+from app.services.weather_service import WeatherServiceV2
 from app.utils.logger import setup_logger
 
 VERSION = "v2"
@@ -22,51 +21,24 @@ settings = get_settings()
 router = APIRouter(prefix=f"/{VERSION}", tags=[VERSION])
 
 
-def get_weather_service() -> WeatherService:
-    return container.weather_service
+def get_weather_service() -> WeatherServiceV2:
+    return container.weather_service_v2
 
 
 @router.get("/weather", response_model=WeatherResponseV2)
 async def get_weather_v2(
-        request: Request,
-        city: str = Query(..., description="City name", min_length=1, max_length=100),
-        weather_service: WeatherService = Depends(get_weather_service)
+    request: Request,
+    city: str = Query(..., description="City name", min_length=1, max_length=100),
+    weather_service: WeatherServiceV2 = Depends(get_weather_service),
 ) -> WeatherResponseV2:
     """
     Get weather data for a specific city (V2 API - Enhanced Format).
-    
+
     Returns weather data with additional metadata and enhanced information.
     """
     try:
-        logger.info(f"V2 API request for city: {city}")
-
         weather_data = await weather_service.get_weather(city)
-
-        # Convert to V2 format with temperature as string
-        v2_response = WeatherResponseV2(
-            city=weather_data.city,
-            date=weather_data.date,
-            weather=[
-                {
-                    "hour": hour.hour,
-                    "temperature": str(hour.temperature),
-                    "temperature_unit": hour.temperature_unit,
-                    "condition": hour.condition,
-                    "feels_like": hour.feels_like,
-                    "humidity": hour.humidity,
-                    "wind_speed": hour.wind_speed,
-                    "wind_direction": hour.wind_direction
-                }
-                for hour in weather_data.weather
-            ],
-            metadata=WeatherMetadata(
-                last_updated=weather_data.metadata.last_updated,
-                data_freshness=weather_data.metadata.data_freshness,
-                source=weather_data.metadata.source
-            ),
-            warnings=weather_data.warnings
-        )
-
+        v2_response = WeatherCRUDV2.transform_internal(weather_data)
         return v2_response
 
     except Exception as e:
@@ -76,8 +48,8 @@ async def get_weather_v2(
             detail={
                 "error": "Internal server error",
                 "detail": "Failed to retrieve weather data",
-                "request_id": request.state.request_id
-            }
+                "request_id": request.state.request_id,
+            },
         )
 
 
@@ -99,8 +71,8 @@ async def health_check(request: Request):
         timestamp=datetime.now(UTC).isoformat(),
         services={
             "redis": redis_status,
-            "external_api_circuit_breaker": circuit_status
-        }
+            "external_api_circuit_breaker": circuit_status,
+        },
     )
 
 
@@ -122,8 +94,5 @@ async def get_metrics(request: Request):
         average_response_time_ms=45.2,
         error_rate=0.5,
         circuit_breaker_status=weather_api_client.get_circuit_breaker_status(),
-        top_cities=[
-            {"city": city, "requests": count}
-            for city, count in top_cities
-        ]
+        top_cities=[{"city": city, "requests": count} for city, count in top_cities],
     )

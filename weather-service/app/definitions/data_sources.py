@@ -15,7 +15,7 @@ DEFAULT_CITIES: List[str] = [
     "Mumbai",
     "Singapore",
     "Dubai",
-    "Toronto"
+    "Toronto",
 ]
 
 
@@ -34,6 +34,7 @@ class WeatherCondition(str, Enum):
 
 class WindDirections(str, Enum):
     """Enumeration of possible wind directions."""
+
     N = "N"
     NE = "NE"
     E = "E"

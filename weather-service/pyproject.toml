@@ -26,6 +26,7 @@ black = "^24.1.0"
 pylint = "^3.0.3"
 fakeredis = "^2.20.1"
 respx = "^0.20.2"
+dill = "^0.4.0"
 
 [build-system]
 requires = ["poetry-core"]

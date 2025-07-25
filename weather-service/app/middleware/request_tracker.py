@@ -15,11 +15,11 @@ class RequestTrackerMiddleware(BaseHTTPMiddleware):
     - Processing time measurement
     - Structured logging of requests
     """
-    
+
     async def dispatch(self, request: Request, call_next):
         request_id = f"req_{uuid.uuid4().hex[:8]}_{int(time.time() * 1000)}"
         request.state.request_id = request_id
-        
+
         start_time = time.time()
         logger.debug(
             f"Incoming request",
@@ -27,15 +27,15 @@ class RequestTrackerMiddleware(BaseHTTPMiddleware):
                 "request_id": request_id,
                 "method": request.method,
                 "path": request.url.path,
-                "client": request.client.host if request.client else "unknown"
-            }
+                "client": request.client.host if request.client else "unknown",
+            },
         )
-        
+
         try:
             response = await call_next(request)
-            
+
             process_time = time.time() - start_time
-            
+
             response.headers["X-Process-Time"] = f"{process_time:.3f}"
             response.headers["X-Request-ID"] = request_id
             logger.debug(
@@ -43,12 +43,12 @@ class RequestTrackerMiddleware(BaseHTTPMiddleware):
                 extra={
                     "request_id": request_id,
                     "status_code": response.status_code,
-                    "process_time": process_time
-                }
+                    "process_time": process_time,
+                },
             )
-            
+
             return response
-            
+
         except Exception as e:
             process_time = time.time() - start_time
             logger.error(
@@ -56,15 +56,15 @@ class RequestTrackerMiddleware(BaseHTTPMiddleware):
                 extra={
                     "request_id": request_id,
                     "process_time": process_time,
-                    "error": str(e)
-                }
+                    "error": str(e),
+                },
             )
-            
+
             return Response(
                 content="Internal server error",
                 status_code=500,
                 headers={
                     "X-Process-Time": f"{process_time:.3f}",
-                    "X-Request-ID": request_id
-                }
+                    "X-Request-ID": request_id,
+                },
             )

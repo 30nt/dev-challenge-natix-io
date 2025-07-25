@@ -1,4 +1,5 @@
 """Weather service exceptions."""
+
 from .common import (
     WeatherServiceException,
     RateLimitExceededException,

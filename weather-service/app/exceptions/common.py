@@ -1,5 +1,6 @@
 class WeatherServiceException(Exception):
     """Base exception for weather service."""
+
     def __init__(self, message: str):
         super().__init__(message)
 
@@ -26,4 +27,3 @@ class CircuitBreakerOpenException(WeatherServiceException):
 
 class ValidationError(WeatherServiceException):
     """Raised when validation fails."""
-

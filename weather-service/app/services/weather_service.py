@@ -2,28 +2,28 @@
 This module provides weather-related services.
 """
 
-from abc import ABC, abstractmethod
 from datetime import datetime, date, UTC
 from typing import Optional, List, Union
 
 from app.config import get_settings
+from app.definitions.data_sources import ApiVersion
 from app.exceptions import RateLimitExceededException
 from app.schemas.api_v1 import WeatherResponse, HourlyWeather
 from app.schemas.api_v2 import WeatherResponseV2, WeatherMetadata, HourlyWeatherV2
-from app.services.weather_cache_service import WeatherCacheService
+from app.services.dummy_external_api import dummy_weather_api
+from app.services.queue_service import QueueService
 from app.services.rate_limit_service import RateLimitService
 from app.services.request_stats_service import RequestStatsService
-from app.services.queue_service import QueueService
-from app.services.dummy_external_api import dummy_weather_api
+from app.services.weather_cache_service import WeatherCacheService
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 settings = get_settings()
 
 
-class BaseWeatherService(ABC):
+class WeatherService:
     """
-    Base class for weather service implementations.
+    Unified weather service that handles both v1 and v2 API responses.
     """
 
     def __init__(
@@ -58,7 +58,9 @@ class BaseWeatherService(ABC):
             cleaned_data.append(cleaned_hour)
         return cleaned_data
 
-    async def get_weather(self, city: str) -> Union[WeatherResponse, WeatherResponseV2]:
+    async def get_weather(
+        self, city: str, version: ApiVersion = ApiVersion.V1
+    ) -> Union[WeatherResponse, WeatherResponseV2]:
         """
         Get weather data for a city.
         """
@@ -74,6 +76,7 @@ class BaseWeatherService(ABC):
                 weather_data=cached_data["weather"],
                 source="cache",
                 freshness="fresh",
+                version=version,
             )
 
         logger.info("Cache miss for %s", city)
@@ -94,6 +97,7 @@ class BaseWeatherService(ABC):
                         weather_data=external_data["result"],
                         source="api",
                         freshness="fresh",
+                        version=version,
                     )
             except Exception as e:
                 logger.error("Failed to fetch weather from external API: %s", e)
@@ -111,6 +115,7 @@ class BaseWeatherService(ABC):
                 source="cache",
                 freshness="stale",
                 warning="Data might be up to 24 hours old due to rate limiting",
+                version=version,
             )
 
         await self.queue_manager.add_to_queue(city, priority=10)
@@ -119,7 +124,6 @@ class BaseWeatherService(ABC):
             "Weather data unavailable. Request has been queued."
         )
 
-    @abstractmethod
     def _build_response(
         self,
         city: str,
@@ -127,62 +131,23 @@ class BaseWeatherService(ABC):
         weather_data: List[dict],
         source: str,
         freshness: str,
+        version: ApiVersion,
         warning: Optional[str] = None,
     ) -> Union[WeatherResponse, WeatherResponseV2]:
         """
-        Build response object from weather data.
-        """
-
-
-class WeatherService(BaseWeatherService):
-    """
-    Weather service for API v1 responses.
-    """
-
-    def _build_response(
-        self,
-        city: str,
-        date_str: str,
-        weather_data: List[dict],
-        source: str,
-        freshness: str,
-        warning: Optional[str] = None,
-    ) -> WeatherResponse:
-        """
-        Build v1 response from weather data.
+        Build response object from weather data based on API version.
         """
         cleaned_data = self._strip_temperature_units(weather_data)
-        hourly_weather = [HourlyWeather(**hour_data) for hour_data in cleaned_data]
 
-        return WeatherResponse(weather=hourly_weather)
+        if version == ApiVersion.V1:
+            hourly_weather = [HourlyWeather(**hour_data) for hour_data in cleaned_data]
+            return WeatherResponse(weather=hourly_weather)
 
-
-class WeatherServiceV2(BaseWeatherService):
-    """
-    Weather service for API v2 responses.
-    """
-
-    def _build_response(
-        self,
-        city: str,
-        date_str: str,
-        weather_data: List[dict],
-        source: str,
-        freshness: str,
-        warning: Optional[str] = None,
-    ) -> WeatherResponseV2:
-        """
-        Build v2 response from weather data.
-        """
-        cleaned_data = self._strip_temperature_units(weather_data)
         hourly_weather = [HourlyWeatherV2(**hour_data) for hour_data in cleaned_data]
-
         metadata = WeatherMetadata(
             last_updated=datetime.now(UTC), data_freshness=freshness, source=source
         )
-
         warnings = [warning] if warning else []
-
         return WeatherResponseV2(
             city=city,
             date=date_str,

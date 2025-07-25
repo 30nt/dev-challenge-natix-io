@@ -5,11 +5,11 @@ This module provides a dependency container for the application.
 import redis.asyncio as redis
 
 from app.config import get_settings
-from app.services.weather_service import WeatherService, WeatherServiceV2
-from app.services.weather_cache_service import WeatherCacheService
+from app.services.queue_service import QueueService
 from app.services.rate_limit_service import RateLimitService
 from app.services.request_stats_service import RequestStatsService
-from app.services.queue_service import QueueService
+from app.services.weather_cache_service import WeatherCacheService
+from app.services.weather_service import WeatherService
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -33,7 +33,6 @@ class DependencyContainer:
         self.stats_tracker = None
         self.queue_manager = None
         self.weather_service = None
-        self.weather_service_v2 = None
 
     async def initialize(self):
         """
@@ -52,12 +51,6 @@ class DependencyContainer:
             self.queue_manager = QueueService(self.redis_client)
 
             self.weather_service = WeatherService(
-                weather_cache=self.weather_cache,
-                rate_limiter=self.rate_limiter,
-                stats_tracker=self.stats_tracker,
-                queue_manager=self.queue_manager,
-            )
-            self.weather_service_v2 = WeatherServiceV2(
                 weather_cache=self.weather_cache,
                 rate_limiter=self.rate_limiter,
                 stats_tracker=self.stats_tracker,

@@ -2,44 +2,49 @@
 This module defines the routes for API version 1.
 """
 
-from fastapi import APIRouter, Query, Depends, HTTPException
+from fastapi import APIRouter, Query, Depends, HTTPException, Response
 
 from app.api.v1.crud import WeatherCRUD
 from app.middleware.dependency_container import container
 from app.schemas.api_v1 import WeatherResponse
-from app.services.weather_service import WeatherService
+from app.services.weather_service import WeatherService, ApiVersion
 from app.utils.logger import setup_logger
 
-VERSION = "v1"
 
 logger = setup_logger(__name__)
 
-router = APIRouter(prefix=f"/{VERSION}", tags=[VERSION])
+router = APIRouter(prefix=f"/{ApiVersion.V1.value}", tags=[ApiVersion.V1.value])
 
 
 def get_weather_service() -> WeatherService:
     """
-    Dependency injection for WeatherService.
+    Dependency injection for UnifiedWeatherService.
     """
     return container.weather_service
 
 
-@router.get("/weather", response_model=WeatherResponse)
+@router.get("/weather", response_model=WeatherResponse, deprecated=True)
 async def get_weather_v1(
+    response: Response,
     city: str = Query(..., description="City name", min_length=1, max_length=100),
     weather_service: WeatherService = Depends(get_weather_service),
 ) -> WeatherResponse:
     """
     Get weather data for a specific city (V1 API - Simple Format).
 
+    **DEPRECATED**: This endpoint is deprecated and will be removed in a future version.
+    Please use the v2 API endpoint instead for enhanced features and metadata.
+
     Returns weather data in the original challenge format with temperature as
     string including unit.
     """
     try:
-        weather_data = await weather_service.get_weather(city)
-        v1_response = WeatherCRUD.transform_internal(weather_data)
+        response.headers["X-API-Deprecation"] = "true"
+        response.headers["X-API-Deprecation-Date"] = "2024-12-31"
+        response.headers["X-API-Deprecation-Info"] = "Please migrate to v2 API"
 
-        return v1_response
+        weather_data = await weather_service.get_weather(city, ApiVersion.V1)
+        return WeatherCRUD.transform_internal(weather_data)
 
     except HTTPException:
         raise

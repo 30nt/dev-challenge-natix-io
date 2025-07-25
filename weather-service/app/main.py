@@ -67,8 +67,6 @@ Instrumentator().instrument(app).expose(app, endpoint="/prometheus-metrics")
 app.include_router(v1_routes.router)
 app.include_router(v2_routes.router)
 
-app.include_router(v2_routes.router, prefix="", include_in_schema=False)
-
 if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",

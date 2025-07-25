@@ -8,8 +8,7 @@ from app.services.request_stats_service import RequestStatsService
 from app.services.queue_service import QueueService
 from app.services.weather_service import (
     WeatherService,
-    WeatherServiceV2,
-    BaseWeatherService,
+    ApiVersion,
 )
 from app.services.dummy_external_api import (
     DummyWeatherAPI,
@@ -23,8 +22,7 @@ __all__ = [
     "RequestStatsService",
     "QueueService",
     "WeatherService",
-    "WeatherServiceV2",
-    "BaseWeatherService",
+    "ApiVersion",
     "DummyWeatherAPI",
     "RateLimitTracker",
     "dummy_weather_api",

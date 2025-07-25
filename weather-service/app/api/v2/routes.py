@@ -14,30 +14,29 @@ from app.schemas.api_v2 import (
     HealthResponse,
     MetricsResponse,
 )
-from app.services.weather_service import WeatherServiceV2
+from app.services.weather_service import WeatherService, ApiVersion
 from app.utils.logger import setup_logger
 from app.utils.circuit_breaker import get_circuit_breaker
 
-VERSION = "v2"
 
 logger = setup_logger(__name__)
 settings = get_settings()
 
-router = APIRouter(prefix=f"/{VERSION}", tags=[VERSION])
+router = APIRouter(prefix=f"/{ApiVersion.V2.value}", tags=[ApiVersion.V2.value])
 
 
-def get_weather_service() -> WeatherServiceV2:
+def get_weather_service() -> WeatherService:
     """
-    Dependency injection for WeatherServiceV2.
+    Dependency injection for UnifiedWeatherService.
     """
-    return container.weather_service_v2
+    return container.weather_service
 
 
 @router.get("/weather", response_model=WeatherResponseV2)
 async def get_weather_v2(
     request: Request,
     city: str = Query(..., description="City name", min_length=1, max_length=100),
-    weather_service: WeatherServiceV2 = Depends(get_weather_service),
+    weather_service: WeatherService = Depends(get_weather_service),
 ) -> WeatherResponseV2:
     """
     Get weather data for a specific city (V2 API - Enhanced Format).
@@ -45,9 +44,8 @@ async def get_weather_v2(
     Returns weather data with additional metadata and enhanced information.
     """
     try:
-        weather_data = await weather_service.get_weather(city)
-        v2_response = WeatherCRUDV2.transform_internal(weather_data)
-        return v2_response
+        weather_data = await weather_service.get_weather(city, ApiVersion.V2)
+        return WeatherCRUDV2.transform_internal(weather_data)
 
     except Exception as e:
         logger.error("Error getting weather for %s: %s", city, e)

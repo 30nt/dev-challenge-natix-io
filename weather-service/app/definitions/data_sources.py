@@ -5,6 +5,12 @@ This module defines data sources for the application.
 from enum import Enum
 from typing import Literal, List
 
+
+class ApiVersion(Enum):
+    V1 = "v1"
+    V2 = "v2"
+
+
 DataSource = Literal["cache", "api"]
 DataFreshness = Literal["fresh", "stale"]
 TemperatureUnit = Literal["celsius", "fahrenheit"]

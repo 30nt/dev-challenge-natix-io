@@ -29,7 +29,7 @@ docker-compose up
 
 ### Manual Setup
 
-1. Install Python 3.12+
+1. Install Python 3.11+
 2. Install Poetry:
    ```bash
    curl -sSL https://install.python-poetry.org | python3 -
@@ -47,9 +47,35 @@ docker-compose up
 
 ## API Endpoints
 
-### Get Weather
+### API Versions
+
+The Weather Service API supports two versions:
+
+#### Version 1 (Legacy)
+Simple response format matching the original challenge specification.
+
 ```
-GET /weather?city=London
+GET /v1/weather?city=London
+```
+
+Response:
+```json
+{
+  "weather": [
+    { "hour": 0, "temperature": "18°C", "condition": "Clear" },
+    { "hour": 1, "temperature": "17°C", "condition": "Clear" },
+    ...
+    { "hour": 23, "temperature": "16°C", "condition": "Cloudy" }
+  ]
+}
+```
+
+#### Version 2 (Recommended)
+Enhanced response with metadata and additional weather attributes.
+
+```
+GET /v2/weather?city=London
+GET /weather?city=London  (defaults to v2)
 ```
 
 Response:
@@ -60,7 +86,7 @@ Response:
   "weather": [
     {
       "hour": 0,
-      "temperature": 18,
+      "temperature": "18",
       "temperature_unit": "celsius",
       "condition": "Clear",
       "feels_like": 16,
@@ -72,7 +98,6 @@ Response:
   "metadata": {
     "last_updated": "2024-01-15T10:30:00Z",
     "data_freshness": "fresh",
-    "cache_ttl_seconds": 3600,
     "source": "cache"
   },
   "warnings": []

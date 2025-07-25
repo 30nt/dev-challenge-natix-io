@@ -5,8 +5,6 @@ DataSource = Literal["cache", "api"]
 DataFreshness = Literal["fresh", "stale"]
 TemperatureUnit = Literal["celsius", "fahrenheit"]
 
-VALID_WIND_DIRECTIONS: List[str] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
-
 DEFAULT_CITIES: List[str] = [
     "London",
     "New York",
@@ -32,3 +30,15 @@ class WeatherCondition(str, Enum):
     SNOWY = "Snowy"
     FOGGY = "Foggy"
     WINDY = "Windy"
+
+
+class WindDirections(str, Enum):
+    """Enumeration of possible wind directions."""
+    N = "N"
+    NE = "NE"
+    E = "E"
+    SE = "SE"
+    S = "S"
+    SW = "SW"
+    W = "W"
+    NW = "NW"

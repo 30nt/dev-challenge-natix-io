@@ -1,3 +1,7 @@
+"""
+This module defines the routes for API version 2.
+"""
+
 from datetime import datetime, UTC
 
 from fastapi import APIRouter, Query, Request, HTTPException, Depends
@@ -12,6 +16,7 @@ from app.schemas.api_v2 import (
 )
 from app.services.weather_service import WeatherServiceV2
 from app.utils.logger import setup_logger
+from app.utils.circuit_breaker import get_circuit_breaker
 
 VERSION = "v2"
 
@@ -22,6 +27,9 @@ router = APIRouter(prefix=f"/{VERSION}", tags=[VERSION])
 
 
 def get_weather_service() -> WeatherServiceV2:
+    """
+    Dependency injection for WeatherServiceV2.
+    """
     return container.weather_service_v2
 
 
@@ -42,7 +50,7 @@ async def get_weather_v2(
         return v2_response
 
     except Exception as e:
-        logger.error(f"Error getting weather for {city}: {e}")
+        logger.error("Error getting weather for %s: %s", city, e)
         raise HTTPException(
             status_code=500,
             detail={
@@ -50,20 +58,22 @@ async def get_weather_v2(
                 "detail": "Failed to retrieve weather data",
                 "request_id": request.state.request_id,
             },
-        )
+        ) from e
 
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check(request: Request):
-    cache_service = request.app.state.cache_service
-
+    """
+    Health check endpoint that returns service status.
+    """
     redis_status = "healthy"
     try:
-        await cache_service.redis_client.ping()
-    except:
+        await container.redis_client.ping()
+    except Exception:
         redis_status = "unhealthy"
 
-    circuit_status = weather_api_client.get_circuit_breaker_status()
+    circuit_breaker = get_circuit_breaker("weather_api")
+    circuit_status = circuit_breaker.state if circuit_breaker else "unknown"
 
     return HealthResponse(
         status="healthy" if redis_status == "healthy" else "degraded",
@@ -78,10 +88,13 @@ async def health_check(request: Request):
 
 @router.get("/metrics", response_model=MetricsResponse)
 async def get_metrics(request: Request):
-    cache_service = request.app.state.cache_service
+    """
+    Metrics endpoint that returns performance and usage statistics.
+    """
+    top_cities = await container.stats_tracker.get_top_cities(10)
+    rate_limit_remaining = await container.rate_limiter.get_rate_limit_remaining()
 
-    top_cities = await cache_service.get_top_cities(10)
-    rate_limit_remaining = await cache_service.get_rate_limit_remaining()
+    circuit_breaker = get_circuit_breaker("weather_api")
 
     return MetricsResponse(
         cache_hit_rate=75.5,
@@ -93,6 +106,8 @@ async def get_metrics(request: Request):
         rate_limit_window_seconds=settings.rate_limit_window,
         average_response_time_ms=45.2,
         error_rate=0.5,
-        circuit_breaker_status=weather_api_client.get_circuit_breaker_status(),
+        circuit_breaker_status=(
+            circuit_breaker.state if circuit_breaker else "unknown"
+        ),
         top_cities=[{"city": city, "requests": count} for city, count in top_cities],
     )

@@ -33,11 +33,20 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
-line-length = 88
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 
+[tool.pylint.messages_control]
+disable = [
+    "too-few-public-methods",
+    "broad-exception-caught", 
+    "too-many-arguments",
+    "too-many-positional-arguments",
+    "missing-function-docstring",
+    "missing-class-docstring",
+    "unused-argument"
+]
+
 [tool.pylint.format]
-max-line-length = 88

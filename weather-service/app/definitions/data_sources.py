@@ -1,3 +1,7 @@
+"""
+This module defines data sources for the application.
+"""
+
 from enum import Enum
 from typing import Literal, List
 

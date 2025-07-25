@@ -1,3 +1,7 @@
+"""
+This module contains CRUD operations for API version 2.
+"""
+
 from app.schemas.api_v2 import WeatherResponseV2, HourlyWeatherV2, WeatherMetadata
 from app.utils.logger import setup_logger
 

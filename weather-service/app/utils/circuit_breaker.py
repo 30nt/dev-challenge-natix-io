@@ -1,8 +1,12 @@
+"""
+This module implements a circuit breaker pattern.
+"""
+
 import asyncio
 import time
 from enum import Enum
 from functools import wraps
-from typing import Callable, Optional, Any
+from typing import Callable, Optional
 from app.utils.logger import setup_logger
 from app.exceptions import CircuitBreakerOpenException
 
@@ -13,6 +17,8 @@ _circuit_breakers = {}
 
 
 class CircuitState(Enum):
+    """Circuit breaker states."""
+
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
@@ -60,7 +66,7 @@ class CircuitBreaker:
         """Record successful call."""
         self._failure_count = 0
         self._state = CircuitState.CLOSED
-        logger.debug(f"Circuit breaker '{self.name}' recorded success, state: CLOSED")
+        logger.debug("Circuit breaker '%s' recorded success, state: CLOSED", self.name)
 
     def _record_failure(self):
         """Record failed call."""
@@ -70,14 +76,16 @@ class CircuitBreaker:
         if self._failure_count >= self.failure_threshold:
             self._state = CircuitState.OPEN
             logger.warning(
-                f"Circuit breaker '{self.name}' opened after {self._failure_count} failures"
+                "Circuit breaker '%s' opened after %s failures",
+                self.name,
+                self._failure_count,
             )
 
     def _get_state(self) -> CircuitState:
         """Get current state, checking if we should transition to half-open."""
         if self._state == CircuitState.OPEN and self._should_attempt_reset():
             self._state = CircuitState.HALF_OPEN
-            logger.debug(f"Circuit breaker '{self.name}' half-open, attempting reset")
+            logger.debug("Circuit breaker '%s' half-open, attempting reset", self.name)
         return self._state
 
     def __call__(self, func: Callable) -> Callable:

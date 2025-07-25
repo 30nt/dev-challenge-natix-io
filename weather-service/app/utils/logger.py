@@ -1,3 +1,7 @@
+"""
+This module provides logging utilities for the application.
+"""
+
 import logging
 import sys
 

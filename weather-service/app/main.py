@@ -1,3 +1,7 @@
+"""
+This module is the entry point for the application.
+"""
+
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -10,8 +14,7 @@ from app.api.v2 import routes as v2_routes
 from app.background.cache_warmer import start_cache_warmer
 from app.config import get_settings
 from app.middleware.dependency_container import container
-from app.middleware.request_tracker import RequestTrackerMiddleware
-from app.services.cache_service import CacheService
+from app.middleware.request_id import RequestIDMiddleware
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -19,26 +22,25 @@ settings = get_settings()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(fastapi_app: FastAPI):
+    """
+    This function manages the application's lifespan.
+    """
     logger.info("Starting Weather Service API...")
 
-    cache_service = CacheService()
-    await cache_service.initialize()
-    app.state.cache_service = cache_service
-
-    container.set_cache_service(cache_service)
+    await container.initialize()
 
     if settings.enable_cache_warming:
-        app.state.cache_warmer_task = await start_cache_warmer(app)
+        fastapi_app.state.cache_warmer_task = await start_cache_warmer(fastapi_app)
 
     yield
 
     logger.info("Shutting down Weather Service API...")
 
-    if hasattr(app.state, "cache_warmer_task"):
-        app.state.cache_warmer_task.cancel()
+    if hasattr(fastapi_app.state, "cache_warmer_task"):
+        fastapi_app.state.cache_warmer_task.cancel()
 
-    await cache_service.close()
+    await container.close()
 
 
 app = FastAPI(
@@ -58,7 +60,7 @@ app.add_middleware(
     allow_headers=settings.cors_allow_headers,
 )
 
-app.add_middleware(RequestTrackerMiddleware)
+app.add_middleware(RequestIDMiddleware)
 
 Instrumentator().instrument(app).expose(app, endpoint="/prometheus-metrics")
 

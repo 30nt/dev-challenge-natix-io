@@ -1,3 +1,7 @@
+"""
+This module defines the routes for API version 1.
+"""
+
 from fastapi import APIRouter, Query, Depends, HTTPException
 
 from app.api.v1.crud import WeatherCRUD
@@ -14,6 +18,9 @@ router = APIRouter(prefix=f"/{VERSION}", tags=[VERSION])
 
 
 def get_weather_service() -> WeatherService:
+    """
+    Dependency injection for WeatherService.
+    """
     return container.weather_service
 
 
@@ -25,7 +32,8 @@ async def get_weather_v1(
     """
     Get weather data for a specific city (V1 API - Simple Format).
 
-    Returns weather data in the original challenge format with temperature as string including unit.
+    Returns weather data in the original challenge format with temperature as
+    string including unit.
     """
     try:
         weather_data = await weather_service.get_weather(city)
@@ -36,5 +44,5 @@ async def get_weather_v1(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in V1 weather endpoint: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.error("Error in V1 weather endpoint: %s", str(e))
+        raise HTTPException(status_code=500, detail="Internal server error") from e

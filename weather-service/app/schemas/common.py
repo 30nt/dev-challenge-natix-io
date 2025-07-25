@@ -1,3 +1,7 @@
+"""
+This module defines common schemas used in the application.
+"""
+
 from pydantic import BaseModel, Field, field_validator
 
 from app.definitions.data_sources import WeatherCondition

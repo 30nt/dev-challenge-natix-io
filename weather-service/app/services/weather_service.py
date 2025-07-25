@@ -1,3 +1,7 @@
+"""
+This module provides weather-related services.
+"""
+
 from abc import ABC, abstractmethod
 from datetime import datetime, date, UTC
 from typing import Optional, List, Union
@@ -6,7 +10,10 @@ from app.config import get_settings
 from app.exceptions import RateLimitExceededException
 from app.schemas.api_v1 import WeatherResponse, HourlyWeather
 from app.schemas.api_v2 import WeatherResponseV2, WeatherMetadata, HourlyWeatherV2
-from app.services.cache_service import CacheService
+from app.services.weather_cache_service import WeatherCacheService
+from app.services.rate_limit_service import RateLimitService
+from app.services.request_stats_service import RequestStatsService
+from app.services.queue_service import QueueService
 from app.services.dummy_external_api import dummy_weather_api
 from app.utils.logger import setup_logger
 
@@ -15,61 +22,82 @@ settings = get_settings()
 
 
 class BaseWeatherService(ABC):
-    def __init__(self, cache_service: CacheService):
-        self.cache_service = cache_service
+    """
+    Base class for weather service implementations.
+    """
+
+    def __init__(
+        self,
+        weather_cache: WeatherCacheService,
+        rate_limiter: RateLimitService,
+        stats_tracker: RequestStatsService,
+        queue_manager: QueueService,
+    ):
+        """
+        Initialize weather service with direct service dependencies.
+        """
+        self.weather_cache = weather_cache
+        self.rate_limiter = rate_limiter
+        self.stats_tracker = stats_tracker
+        self.queue_manager = queue_manager
 
     async def get_weather(self, city: str) -> Union[WeatherResponse, WeatherResponseV2]:
-        today = date.today().isoformat()
+        """
+        Get weather data for a city.
+        """
+        today_date = date.today().isoformat()
 
-        cached_data = await self.cache_service.get_weather(city, today)
+        cached_data = await self.weather_cache.get_weather(city, today_date)
         if cached_data:
-            logger.info(f"Cache hit for {city}")
+            logger.info("Cache hit for %s", city)
+            # Track the cache hit
+            await self.stats_tracker.increment_stats(city)
             return self._build_response(
                 city=city,
-                date=today,
+                date_str=today_date,
                 weather_data=cached_data["weather"],
                 source="cache",
                 freshness="fresh",
             )
 
-        logger.info(f"Cache miss for {city}")
+        logger.info("Cache miss for %s", city)
 
-        if await self.cache_service.consume_rate_limit_token():
+        if await self.rate_limiter.consume_rate_limit_token():
             try:
-                logger.info(f"Fetching weather from external API for {city}")
+                logger.info("Fetching weather from external API for %s", city)
                 external_data = await dummy_weather_api.fetch_weather(city)
 
                 if external_data:
-                    await self.cache_service.set_weather(
-                        city=city, date=today, weather_data=external_data
+                    await self.weather_cache.set_weather(
+                        city=city, date=today_date, weather_data=external_data
                     )
 
                     return self._build_response(
                         city=city,
-                        date=today,
-                        weather_data=external_data["weather"],
+                        date_str=today_date,
+                        weather_data=external_data["result"],
                         source="api",
                         freshness="fresh",
                     )
             except Exception as e:
-                logger.error(f"Failed to fetch weather from external API: {e}")
+                logger.error("Failed to fetch weather from external API: %s", e)
 
         logger.warning(
-            f"Rate limited or API failed, checking for stale data for {city}"
+            "Rate limited or API failed, checking for stale data for %s", city
         )
-        stale_data = await self.cache_service.get_stale_weather(city, today)
+        stale_data = await self.weather_cache.get_stale_weather(city, today_date)
 
         if stale_data:
             return self._build_response(
                 city=city,
-                date=today,
+                date_str=today_date,
                 weather_data=stale_data["weather"],
                 source="cache",
                 freshness="stale",
                 warning="Data might be up to 24 hours old due to rate limiting",
             )
 
-        await self.cache_service.add_to_queue(city, priority=10)
+        await self.queue_manager.add_to_queue(city, priority=10)
 
         raise RateLimitExceededException(
             "Weather data unavailable. Request has been queued."
@@ -79,40 +107,56 @@ class BaseWeatherService(ABC):
     def _build_response(
         self,
         city: str,
-        date: str,
+        date_str: str,
         weather_data: List[dict],
         source: str,
         freshness: str,
         warning: Optional[str] = None,
     ) -> Union[WeatherResponse, WeatherResponseV2]:
-        pass
+        """
+        Build response object from weather data.
+        """
 
 
 class WeatherService(BaseWeatherService):
+    """
+    Weather service for API v1 responses.
+    """
+
     def _build_response(
         self,
         city: str,
-        date: str,
+        date_str: str,
         weather_data: List[dict],
         source: str,
         freshness: str,
         warning: Optional[str] = None,
     ) -> WeatherResponse:
+        """
+        Build v1 response from weather data.
+        """
         hourly_weather = [HourlyWeather(**hour_data) for hour_data in weather_data]
 
         return WeatherResponse(weather=hourly_weather)
 
 
 class WeatherServiceV2(BaseWeatherService):
+    """
+    Weather service for API v2 responses.
+    """
+
     def _build_response(
         self,
         city: str,
-        date: str,
+        date_str: str,
         weather_data: List[dict],
         source: str,
         freshness: str,
         warning: Optional[str] = None,
     ) -> WeatherResponseV2:
+        """
+        Build v2 response from weather data.
+        """
         hourly_weather = [HourlyWeatherV2(**hour_data) for hour_data in weather_data]
 
         metadata = WeatherMetadata(
@@ -123,7 +167,7 @@ class WeatherServiceV2(BaseWeatherService):
 
         return WeatherResponseV2(
             city=city,
-            date=date,
+            date=date_str,
             weather=hourly_weather,
             metadata=metadata,
             warnings=warnings,

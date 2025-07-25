@@ -1,3 +1,7 @@
+"""
+This module contains configuration settings for the application.
+"""
+
 import os
 from functools import lru_cache
 from typing import Optional
@@ -9,6 +13,10 @@ load_dotenv()
 
 
 class Settings(BaseSettings):
+    """
+    This class handles configuration settings.
+    """
+
     app_name: str = os.getenv("APP_NAME", "Weather Service API")
     app_version: str = os.getenv("APP_VERSION", "1.0.0")
 
@@ -69,4 +77,7 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
+    """
+    Get the application settings.
+    """
     return Settings()

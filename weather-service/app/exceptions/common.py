@@ -1,3 +1,8 @@
+"""
+This module defines common exceptions used in the application.
+"""
+
+
 class WeatherServiceException(Exception):
     """Base exception for weather service."""
 

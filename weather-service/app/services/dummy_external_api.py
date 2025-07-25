@@ -1,15 +1,13 @@
 """
-Dummy Weather API for testing and development.
-
-This module provides mock weather data without making actual external API calls.
-Includes rate limiting simulation to demonstrate resilience patterns.
+This module simulates an external API for testing purposes.
 """
 
 import random
 from datetime import datetime, UTC, timedelta
 from typing import Dict, Any, List, Optional
 
-from app.definitions.data_sources import WeatherCondition
+from app.definitions.data_sources import WeatherCondition, WindDirections
+from app.utils.circuit_breaker import circuit_breaker
 
 
 class RateLimitTracker:
@@ -137,8 +135,6 @@ class DummyWeatherAPI:
         },
     }
 
-    WIND_DIRECTIONS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
-
     def __init__(self):
         """Initialize the dummy weather API with rate limiting."""
         self.request_count = 0
@@ -183,6 +179,76 @@ class DummyWeatherAPI:
 
         return conditions[0][0].value  # Default to first condition
 
+    def _generate_hourly_data(
+        self, hour: int, base_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Generate weather data for a specific hour.
+        """
+        temperature = self.generate_temperature_curve(base_data["base_temp"], hour)
+        humidity = self._calculate_humidity(base_data["base_humidity"])
+        wind_speed = self._calculate_wind_speed(base_data["dominant_condition"])
+        condition = self._select_hourly_condition(
+            base_data["dominant_condition"], base_data["pattern"]
+        )
+        feels_like = self._calculate_feels_like(temperature, wind_speed, humidity)
+
+        return {
+            "hour": hour,
+            "temperature": f"{temperature}°C",
+            "condition": condition,
+            "feels_like": feels_like,
+            "humidity": humidity,
+            "wind_speed": wind_speed,
+            "wind_direction": random.choice(list(WindDirections)).value,
+            "pressure": random.randint(1000, 1020),
+            "visibility": random.randint(5, 20),
+            "uv_index": (
+                random.randint(0, 11)
+                if condition == WeatherCondition.CLEAR.value
+                else 0
+            ),
+        }
+
+    def _calculate_humidity(self, base_humidity: int) -> int:
+        """
+        Calculate humidity for an hour.
+        """
+        humidity = base_humidity + random.randint(-5, 5)
+        return max(0, min(100, humidity))
+
+    def _calculate_wind_speed(self, dominant_condition: str) -> int:
+        """
+        Calculate wind speed based on conditions.
+        """
+        if dominant_condition in [
+            WeatherCondition.STORMY.value,
+            WeatherCondition.WINDY.value,
+        ]:
+            return random.randint(20, 40)
+        return random.randint(5, 25)
+
+    def _select_hourly_condition(self, dominant_condition: str, pattern: Dict) -> str:
+        """
+        Select weather condition for an hour.
+        """
+        if random.random() < 0.8:  # 80% chance to keep dominant condition
+            return dominant_condition
+        return self.select_weather_condition(pattern["conditions"])
+
+    def _calculate_feels_like(
+        self, temperature: int, wind_speed: int, humidity: int
+    ) -> int:
+        """
+        Calculate feels-like temperature.
+        """
+        feels_like = temperature
+        if wind_speed > 20:
+            feels_like -= 3  # Wind chill
+        if humidity > 80:
+            feels_like += 2  # Humidity effect
+        return feels_like
+
     def generate_mock_weather_data(self, city: str) -> Dict[str, Any]:
         """
         Generate realistic mock weather data for a city.
@@ -196,68 +262,14 @@ class DummyWeatherAPI:
         self.request_count += 1
         pattern = self.get_weather_pattern(city)
 
-        # Base temperature for the day
-        temp_min, temp_max = pattern["temp_range"]
-        base_temp = random.randint(temp_min, temp_max)
+        base_data = {
+            "base_temp": random.randint(*pattern["temp_range"]),
+            "base_humidity": random.randint(*pattern["humidity_range"]),
+            "dominant_condition": self.select_weather_condition(pattern["conditions"]),
+            "pattern": pattern,
+        }
 
-        # Base humidity
-        humidity_min, humidity_max = pattern["humidity_range"]
-        base_humidity = random.randint(humidity_min, humidity_max)
-
-        # Generate 24 hours of weather data
-        result = []
-
-        # Determine dominant weather pattern for the day
-        dominant_condition = self.select_weather_condition(pattern["conditions"])
-
-        for hour in range(24):
-            # Temperature varies throughout the day
-            temperature = self.generate_temperature_curve(base_temp, hour)
-
-            # Humidity varies slightly
-            humidity = base_humidity + random.randint(-5, 5)
-            humidity = max(0, min(100, humidity))  # Keep in valid range
-
-            # Wind varies throughout the day
-            wind_speed = random.randint(5, 25)
-            if dominant_condition in [
-                WeatherCondition.STORMY.value,
-                WeatherCondition.WINDY.value,
-            ]:
-                wind_speed = random.randint(20, 40)
-
-            # Occasionally change weather condition
-            if random.random() < 0.8:  # 80% chance to keep dominant condition
-                condition = dominant_condition
-            else:
-                condition = self.select_weather_condition(pattern["conditions"])
-
-            # Feels like temperature
-            feels_like = temperature
-            if wind_speed > 20:
-                feels_like -= 3  # Wind chill
-            if humidity > 80:
-                feels_like += 2  # Humidity effect
-
-            result.append(
-                {
-                    "hour": hour,
-                    "temperature": f"{temperature}°C",
-                    "condition": condition,
-                    # Extended data that external API might provide
-                    "feels_like": feels_like,
-                    "humidity": humidity,
-                    "wind_speed": wind_speed,
-                    "wind_direction": random.choice(self.WIND_DIRECTIONS),
-                    "pressure": random.randint(1000, 1020),
-                    "visibility": random.randint(5, 20),
-                    "uv_index": (
-                        random.randint(0, 11)
-                        if condition == WeatherCondition.CLEAR.value
-                        else 0
-                    ),
-                }
-            )
+        result = [self._generate_hourly_data(hour, base_data) for hour in range(24)]
 
         return {
             "result": result,
@@ -269,6 +281,12 @@ class DummyWeatherAPI:
             },
         }
 
+    @circuit_breaker(
+        failure_threshold=3,
+        recovery_timeout=30,
+        expected_exception=ValueError,
+        name="weather_api",
+    )
     async def fetch_weather(self, city: str) -> Dict[str, Any]:
         """
         Async method to fetch weather data with rate limiting.
@@ -292,7 +310,7 @@ class DummyWeatherAPI:
             remaining_time = self.rate_limiter.get_reset_time() - datetime.now(UTC)
             remaining_seconds = int(remaining_time.total_seconds())
 
-            raise Exception(
+            raise ValueError(
                 f"Rate limit exceeded. 100 requests per hour limit reached. "
                 f"Try again in {remaining_seconds} seconds."
             )
@@ -301,13 +319,13 @@ class DummyWeatherAPI:
         self.rate_limiter.record_request()
 
         # Simulate network delay
-        import asyncio
+        import asyncio  # pylint: disable=import-outside-toplevel
 
         await asyncio.sleep(random.uniform(0.1, 0.3))
 
         # Small chance of "API failure" for testing (not related to rate limiting)
         if random.random() < 0.05:  # 5% chance of failure
-            raise Exception("Dummy API simulated server error")
+            raise ValueError("Dummy API simulated server error")
 
         return self.generate_mock_weather_data(city)
 

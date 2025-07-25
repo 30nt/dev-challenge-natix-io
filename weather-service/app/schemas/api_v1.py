@@ -1,3 +1,7 @@
+"""
+This module defines schemas for API version 1.
+"""
+
 from typing import List
 
 from pydantic import BaseModel

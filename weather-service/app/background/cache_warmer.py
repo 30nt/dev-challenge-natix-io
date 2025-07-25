@@ -63,7 +63,7 @@ async def warm_cache(app):
                     await weather_service.get_weather(city)
                     logger.debug("Warmed cache for %s", city)
                     warmed_count += 1
-                    await asyncio.sleep(0.5)  # Be gentle on the API
+                    await asyncio.sleep(0.5)
                 else:
                     logger.warning("Rate limit reached during cache warming")
                     break

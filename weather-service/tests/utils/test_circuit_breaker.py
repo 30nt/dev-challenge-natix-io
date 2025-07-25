@@ -18,7 +18,7 @@ class TestCircuitBreaker:
         cb = CircuitBreaker(failure_threshold=3, recovery_timeout=60)
 
         assert cb.state == CircuitState.CLOSED.value
-        assert cb._failure_count == 0  # pylint: disable=protected-access
+        assert cb._failure_count == 0
 
     @pytest.mark.asyncio
     async def test_successful_calls(self):
@@ -29,13 +29,12 @@ class TestCircuitBreaker:
         async def successful_operation():
             return "success"
 
-        # Multiple successful calls should keep circuit closed
         for _ in range(5):
             result = await successful_operation()
             assert result == "success"
 
         assert cb.state == CircuitState.CLOSED.value
-        assert cb._failure_count == 0  # pylint: disable=protected-access
+        assert cb._failure_count == 0
 
     @pytest.mark.asyncio
     async def test_circuit_opens_after_failures(self):
@@ -46,15 +45,13 @@ class TestCircuitBreaker:
         async def failing_operation():
             raise ValueError("Test failure")
 
-        # Fail 3 times to open the circuit
         for _ in range(3):
             with pytest.raises(ValueError):
                 await failing_operation()
 
         assert cb.state == CircuitState.OPEN.value
-        assert cb._failure_count == 3  # pylint: disable=protected-access
+        assert cb._failure_count == 3
 
-        # Next call should raise CircuitBreakerOpenException
         with pytest.raises(CircuitBreakerOpenException):
             await failing_operation()
 
@@ -69,18 +66,14 @@ class TestCircuitBreaker:
                 raise ValueError("Test failure")
             return "success"
 
-        # Open the circuit
         for _ in range(2):
             with pytest.raises(ValueError):
                 await operation()
 
         assert cb.state == CircuitState.OPEN.value
 
-        # Wait for recovery timeout
         await asyncio.sleep(1.1)
 
-        # Circuit should attempt half-open on next call
-        # Successful call should close the circuit
         result = await operation(should_fail=False)
         assert result == "success"
         assert cb.state == CircuitState.CLOSED.value
@@ -92,7 +85,6 @@ class TestCircuitBreaker:
         async def decorated_operation():
             return "success"
 
-        # The decorated function should work normally
         assert asyncio.run(decorated_operation()) == "success"
 
     def test_sync_function_wrapper(self):
@@ -103,6 +95,5 @@ class TestCircuitBreaker:
         def sync_operation():
             return "sync_success"
 
-        # Should work with sync functions
         result = sync_operation()
         assert result == "sync_success"

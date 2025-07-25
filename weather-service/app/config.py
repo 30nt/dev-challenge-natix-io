@@ -26,34 +26,32 @@ class Settings(BaseSettings):
     weather_api_timeout: int = int(os.getenv("WEATHER_API_TIMEOUT", "10"))
 
     redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379")
-    redis_cache_ttl: int = int(os.getenv("REDIS_CACHE_TTL", "3600"))  # 1 hour
-    redis_stale_ttl: int = int(os.getenv("REDIS_STALE_TTL", "86400"))  # 24 hours
+    redis_cache_ttl: int = int(os.getenv("REDIS_CACHE_TTL", "3600"))
+    redis_stale_ttl: int = int(os.getenv("REDIS_STALE_TTL", "86400"))
     redis_decode_responses: bool = (
         os.getenv("REDIS_DECODE_RESPONSES", "true").lower() == "true"
     )
 
     rate_limit_requests: int = int(os.getenv("RATE_LIMIT_REQUESTS", "100"))
-    rate_limit_window: int = int(os.getenv("RATE_LIMIT_WINDOW", "3600"))  # 1 hour
+    rate_limit_window: int = int(os.getenv("RATE_LIMIT_WINDOW", "3600"))
 
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     enable_cache_warming: bool = (
         os.getenv("ENABLE_CACHE_WARMING", "true").lower() == "true"
     )
-    cache_warm_interval: int = int(os.getenv("CACHE_WARM_INTERVAL", "3600"))  # 1 hour
+    cache_warm_interval: int = int(os.getenv("CACHE_WARM_INTERVAL", "3600"))
     top_cities_count: int = int(os.getenv("TOP_CITIES_COUNT", "10"))
-    cache_warm_max_tokens: int = int(
-        os.getenv("CACHE_WARM_MAX_TOKENS", "20")
-    )  # Max 20% of rate limit
+    cache_warm_max_tokens: int = int(os.getenv("CACHE_WARM_MAX_TOKENS", "20"))
     cache_warm_min_tokens_remaining: int = int(
         os.getenv("CACHE_WARM_MIN_TOKENS_REMAINING", "50")
-    )  # Keep 50 tokens for users
+    )
 
     circuit_breaker_failure_threshold: int = int(
         os.getenv("CIRCUIT_BREAKER_FAILURE_THRESHOLD", "5")
     )
     circuit_breaker_recovery_timeout: int = int(
         os.getenv("CIRCUIT_BREAKER_RECOVERY_TIMEOUT", "300")
-    )  # 5 minutes
+    )
     circuit_breaker_expected_exception: Optional[str] = os.getenv(
         "CIRCUIT_BREAKER_EXPECTED_EXCEPTION"
     )

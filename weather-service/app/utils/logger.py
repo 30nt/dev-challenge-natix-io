@@ -15,12 +15,6 @@ settings = get_settings()
 def setup_logger(name: str) -> logging.Logger:
     """
     Set up a logger with JSON formatting for structured logging.
-
-    Args:
-        name: The name of the logger (usually __name__)
-
-    Returns:
-        Configured logger instance
     """
     logger = logging.getLogger(name)
 

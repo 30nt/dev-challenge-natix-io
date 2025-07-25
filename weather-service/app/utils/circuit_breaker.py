@@ -12,7 +12,6 @@ from app.exceptions import CircuitBreakerOpenException
 
 logger = setup_logger(__name__)
 
-# Global registry to track circuit breakers
 _circuit_breakers = {}
 
 

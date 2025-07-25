@@ -33,9 +33,8 @@ class TestRequestStatsService:
 
         await stats_service.increment_stats("London")
 
-        # Verify Redis calls
         mock_redis.incr.assert_called_once_with("weather:stats:london:request_count")
-        assert mock_redis.expire.call_count == 2  # Called for both key and sorted set
+        assert mock_redis.expire.call_count == 2
         mock_redis.zincrby.assert_called_once_with("top_cities", 1, "london")
 
     async def test_increment_stats_connection_error(self, stats_service, mock_redis):
@@ -49,7 +48,6 @@ class TestRequestStatsService:
         """Test handling timeout error in increment_stats."""
         mock_redis.incr.side_effect = redis.TimeoutError("Timeout")
 
-        # Should not raise exception for timeout
         await stats_service.increment_stats("London")
 
         mock_redis.incr.assert_called_once()
@@ -58,14 +56,13 @@ class TestRequestStatsService:
         """Test handling general error in increment_stats."""
         mock_redis.incr.side_effect = Exception("General error")
 
-        # Should not raise exception for general errors
         await stats_service.increment_stats("London")
 
         mock_redis.incr.assert_called_once()
 
     async def test_get_top_cities_success(self, stats_service, mock_redis):
         """Test getting top cities by request count."""
-        # Mock Redis response: [(city, score), ...]
+
         mock_redis.zrevrange.return_value = [
             (b"london", 100.0),
             (b"paris", 75.0),
@@ -171,6 +168,5 @@ class TestRequestStatsService:
         key = stats_service._get_stats_key("London")
         assert key == "weather:stats:london:request_count"
 
-        # Test case insensitive
         key = stats_service._get_stats_key("LONDON")
         assert key == "weather:stats:london:request_count"

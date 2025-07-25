@@ -27,11 +27,10 @@ class TestQueueService:
 
     async def test_add_to_queue_success(self, queue_service, mock_redis):
         """Test successfully adding a city to the queue."""
-        mock_redis.zadd.return_value = 1  # 1 element added
+        mock_redis.zadd.return_value = 1
 
         await queue_service.add_to_queue("London", priority=5)
 
-        # Verify Redis call
         mock_redis.zadd.assert_called_once_with("weather:queue:cities", {"london": -5})
 
     async def test_add_to_queue_default_priority(self, queue_service, mock_redis):
@@ -53,7 +52,6 @@ class TestQueueService:
         """Test handling timeout error when adding to queue."""
         mock_redis.zadd.side_effect = redis.TimeoutError("Timeout")
 
-        # Should not raise exception for timeout
         await queue_service.add_to_queue("London", priority=5)
 
         mock_redis.zadd.assert_called_once()
@@ -62,14 +60,13 @@ class TestQueueService:
         """Test handling general error when adding to queue."""
         mock_redis.zadd.side_effect = Exception("General error")
 
-        # Should not raise exception for general errors
         await queue_service.add_to_queue("London", priority=5)
 
         mock_redis.zadd.assert_called_once()
 
     async def test_get_from_queue_success(self, queue_service, mock_redis):
         """Test getting the next city from queue."""
-        # Mock Redis response: [(city, score)]
+
         mock_redis.zpopmin.return_value = [(b"london", -10.0)]
 
         city = await queue_service.get_from_queue()
@@ -176,7 +173,6 @@ class TestQueueService:
         """Test handling timeout error in clear_queue."""
         mock_redis.delete.side_effect = redis.TimeoutError("Timeout")
 
-        # Should not raise exception for timeout
         await queue_service.clear_queue()
 
         mock_redis.delete.assert_called_once()
@@ -185,7 +181,6 @@ class TestQueueService:
         """Test handling general error in clear_queue."""
         mock_redis.delete.side_effect = Exception("General error")
 
-        # Should not raise exception for general errors
         await queue_service.clear_queue()
 
         mock_redis.delete.assert_called_once()

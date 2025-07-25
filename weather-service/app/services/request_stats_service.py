@@ -21,9 +21,6 @@ class RequestStatsService:
     def __init__(self, redis_client: redis.Redis):
         """
         Initialize request stats service.
-
-        Args:
-            redis_client: Redis client instance
         """
         self.redis_client = redis_client
 
@@ -40,14 +37,13 @@ class RequestStatsService:
         Uses both individual counters and sorted set for efficiency.
         """
         try:
-            # Individual counter (for backward compatibility)
+
             stats_key = self._get_stats_key(city)
             await self.redis_client.incr(stats_key)
-            await self.redis_client.expire(stats_key, 86400 * 7)  # 7 days
+            await self.redis_client.expire(stats_key, 86400 * 7)
 
-            # Sorted set for efficient top cities query
             await self.redis_client.zincrby("top_cities", 1, city.lower())
-            await self.redis_client.expire("top_cities", 86400 * 7)  # 7 days
+            await self.redis_client.expire("top_cities", 86400 * 7)
 
         except redis.ConnectionError:
             logger.error(
@@ -66,12 +62,11 @@ class RequestStatsService:
         Much more efficient than scanning all keys.
         """
         try:
-            # Get top cities from sorted set
+
             result = await self.redis_client.zrevrange(
                 "top_cities", 0, count - 1, withscores=True
             )
 
-            # Convert to expected format
             return [
                 (city.decode() if isinstance(city, bytes) else city, int(score))
                 for city, score in result

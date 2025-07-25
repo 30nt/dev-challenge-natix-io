@@ -40,19 +40,17 @@ class DependencyContainer:
         Initialize Redis connection and all services.
         """
         try:
-            # Initialize Redis connection
+
             self.redis_client = redis.from_url(
                 settings.redis_url, decode_responses=settings.redis_decode_responses
             )
             await self.redis_client.ping()
 
-            # Initialize specialized services
             self.weather_cache = WeatherCacheService(self.redis_client)
             self.rate_limiter = RateLimitService(self.redis_client)
             self.stats_tracker = RequestStatsService(self.redis_client)
             self.queue_manager = QueueService(self.redis_client)
 
-            # Initialize weather services with direct dependencies
             self.weather_service = WeatherService(
                 weather_cache=self.weather_cache,
                 rate_limiter=self.rate_limiter,

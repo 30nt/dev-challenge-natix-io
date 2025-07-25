@@ -21,9 +21,6 @@ class QueueService:
     def __init__(self, redis_client: redis.Redis):
         """
         Initialize queue service.
-
-        Args:
-            redis_client: Redis client instance
         """
         self.redis_client = redis_client
 
@@ -35,7 +32,7 @@ class QueueService:
         """
         try:
             queue_key = "weather:queue:cities"
-            score = -priority  # Negative for higher priority first
+            score = -priority
             await self.redis_client.zadd(queue_key, {city.lower(): score})
             logger.info("Added %s to queue with priority %s", city, priority)
 

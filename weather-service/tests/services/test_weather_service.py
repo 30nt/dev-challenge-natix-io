@@ -61,7 +61,7 @@ class TestWeatherService:
 
         assert isinstance(result, WeatherResponse)
         assert len(result.weather) == 3
-        assert result.weather[0].temperature == "18°C"
+        assert result.weather[0].temperature == "18"
         assert result.weather[0].condition == "Clear"
 
         weather_service.weather_cache.get_weather.assert_called_once_with(
@@ -76,7 +76,6 @@ class TestWeatherService:
         weather_service.weather_cache.get_weather.return_value = None
         weather_service.rate_limiter.consume_rate_limit_token.return_value = True
 
-        # Mock the dummy API response
         with pytest.MonkeyPatch.context() as m:
             mock_api = AsyncMock()
             mock_api.fetch_weather.return_value = {"result": sample_weather_data}
@@ -86,7 +85,7 @@ class TestWeatherService:
 
             assert isinstance(result, WeatherResponse)
             assert len(result.weather) == 3
-            assert result.weather[0].temperature == "18°C"
+            assert result.weather[0].temperature == "18"
 
             weather_service.weather_cache.set_weather.assert_called_once()
             mock_api.fetch_weather.assert_called_once_with("London")
@@ -130,7 +129,6 @@ class TestWeatherService:
             "weather": sample_weather_data
         }
 
-        # Mock API failure
         with pytest.MonkeyPatch.context() as m:
             mock_api = AsyncMock()
             mock_api.fetch_weather.side_effect = Exception("API Error")
@@ -159,7 +157,7 @@ class TestWeatherServiceV2:
         assert result.city == "London"
         assert result.date == date.today().isoformat()
         assert len(result.weather) == 3
-        assert result.weather[0].temperature == "18°C"
+        assert result.weather[0].temperature == "18"
         assert result.metadata.data_freshness == "fresh"
         assert result.metadata.source == "cache"
         assert isinstance(result.metadata.last_updated, datetime)
@@ -185,16 +183,15 @@ class TestWeatherServiceV2:
         self, weather_service, weather_service_v2, sample_weather_data
     ):
         """Test that temperature format with °C is preserved in both service versions."""
-        # Test V1 service
+
         weather_service.weather_cache.get_weather.return_value = {
             "weather": sample_weather_data
         }
         result_v1 = await weather_service.get_weather("London")
-        assert result_v1.weather[0].temperature == "18°C"
+        assert result_v1.weather[0].temperature == "18"
 
-        # Test V2 service
         weather_service_v2.weather_cache.get_weather.return_value = {
             "weather": sample_weather_data
         }
         result_v2 = await weather_service_v2.get_weather("London")
-        assert result_v2.weather[0].temperature == "18°C"
+        assert result_v2.weather[0].temperature == "18"

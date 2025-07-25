@@ -41,6 +41,23 @@ class BaseWeatherService(ABC):
         self.stats_tracker = stats_tracker
         self.queue_manager = queue_manager
 
+    @staticmethod
+    def _strip_temperature_units(weather_data: List[dict]) -> List[dict]:
+        """
+        Strip temperature units (°C) from weather data.
+        """
+        cleaned_data = []
+        for hour_data in weather_data:
+            cleaned_hour = hour_data.copy()
+            if "temperature" in cleaned_hour and isinstance(
+                cleaned_hour["temperature"], str
+            ):
+                cleaned_hour["temperature"] = (
+                    cleaned_hour["temperature"].replace("°C", "").strip()
+                )
+            cleaned_data.append(cleaned_hour)
+        return cleaned_data
+
     async def get_weather(self, city: str) -> Union[WeatherResponse, WeatherResponseV2]:
         """
         Get weather data for a city.
@@ -50,7 +67,6 @@ class BaseWeatherService(ABC):
         cached_data = await self.weather_cache.get_weather(city, today_date)
         if cached_data:
             logger.info("Cache hit for %s", city)
-            # Track the cache hit
             await self.stats_tracker.increment_stats(city)
             return self._build_response(
                 city=city,
@@ -135,7 +151,8 @@ class WeatherService(BaseWeatherService):
         """
         Build v1 response from weather data.
         """
-        hourly_weather = [HourlyWeather(**hour_data) for hour_data in weather_data]
+        cleaned_data = self._strip_temperature_units(weather_data)
+        hourly_weather = [HourlyWeather(**hour_data) for hour_data in cleaned_data]
 
         return WeatherResponse(weather=hourly_weather)
 
@@ -157,7 +174,8 @@ class WeatherServiceV2(BaseWeatherService):
         """
         Build v2 response from weather data.
         """
-        hourly_weather = [HourlyWeatherV2(**hour_data) for hour_data in weather_data]
+        cleaned_data = self._strip_temperature_units(weather_data)
+        hourly_weather = [HourlyWeatherV2(**hour_data) for hour_data in cleaned_data]
 
         metadata = WeatherMetadata(
             last_updated=datetime.now(UTC), data_freshness=freshness, source=source

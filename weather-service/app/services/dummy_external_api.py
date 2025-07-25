@@ -2,6 +2,7 @@
 This module simulates an external API for testing purposes.
 """
 
+import asyncio
 import random
 from datetime import datetime, UTC, timedelta
 from typing import Dict, Any, List, Optional
@@ -32,7 +33,6 @@ class RateLimitTracker:
             self.request_count = 0
             return
 
-        # Check if we've passed the hour window
         if current_time - self.window_start >= timedelta(hours=1):
             self.window_start = current_time
             self.request_count = 0
@@ -66,9 +66,7 @@ class DummyWeatherAPI:
     Used for development and testing without consuming real API rate limits.
     """
 
-    # Weather patterns for different city types
     CITY_WEATHER_PATTERNS = {
-        # Tropical cities
         "singapore": {
             "temp_range": (24, 32),
             "humidity_range": (70, 90),
@@ -88,7 +86,6 @@ class DummyWeatherAPI:
                 (WeatherCondition.WINDY, 0.1),
             ],
         },
-        # Temperate cities
         "london": {
             "temp_range": (5, 25),
             "humidity_range": (60, 80),
@@ -111,7 +108,6 @@ class DummyWeatherAPI:
                 (WeatherCondition.SNOWY, 0.1),
             ],
         },
-        # Cold cities
         "toronto": {
             "temp_range": (-20, 30),
             "humidity_range": (50, 75),
@@ -122,7 +118,6 @@ class DummyWeatherAPI:
                 (WeatherCondition.PARTLY_CLOUDY, 0.2),
             ],
         },
-        # Default pattern
         "default": {
             "temp_range": (10, 30),
             "humidity_range": (40, 80),
@@ -144,25 +139,22 @@ class DummyWeatherAPI:
         """Get weather pattern for a city."""
         city_lower = city.lower()
 
-        # Check if we have specific pattern for this city
         for pattern_city, pattern in self.CITY_WEATHER_PATTERNS.items():
             if pattern_city in city_lower:
                 return pattern
 
-        # Return default pattern
         return self.CITY_WEATHER_PATTERNS["default"]
 
     def generate_temperature_curve(self, base_temp: int, hour: int) -> int:
         """Generate realistic temperature curve throughout the day."""
-        # Temperature is lowest at 6 AM, highest at 2 PM
+
         hour_offset = (hour - 6) % 24
 
-        # Simple sine curve for temperature variation
-        if hour_offset <= 8:  # 6 AM to 2 PM - warming
+        if hour_offset <= 8:
             variation = int(5 * (hour_offset / 8))
-        elif hour_offset <= 16:  # 2 PM to 10 PM - cooling
+        elif hour_offset <= 16:
             variation = int(5 * (1 - (hour_offset - 8) / 8))
-        else:  # 10 PM to 6 AM - cool
+        else:
             variation = -2
 
         return base_temp + variation
@@ -177,7 +169,7 @@ class DummyWeatherAPI:
             if rand <= cumulative:
                 return condition.value
 
-        return conditions[0][0].value  # Default to first condition
+        return conditions[0][0].value
 
     def _generate_hourly_data(
         self, hour: int, base_data: Dict[str, Any]
@@ -232,7 +224,7 @@ class DummyWeatherAPI:
         """
         Select weather condition for an hour.
         """
-        if random.random() < 0.8:  # 80% chance to keep dominant condition
+        if random.random() < 0.8:
             return dominant_condition
         return self.select_weather_condition(pattern["conditions"])
 
@@ -244,20 +236,14 @@ class DummyWeatherAPI:
         """
         feels_like = temperature
         if wind_speed > 20:
-            feels_like -= 3  # Wind chill
+            feels_like -= 3
         if humidity > 80:
-            feels_like += 2  # Humidity effect
+            feels_like += 2
         return feels_like
 
     def generate_mock_weather_data(self, city: str) -> Dict[str, Any]:
         """
         Generate realistic mock weather data for a city.
-
-        Args:
-            city: City name
-
-        Returns:
-            Dictionary with weather data in external API format
         """
         self.request_count += 1
         pattern = self.get_weather_pattern(city)
@@ -295,17 +281,8 @@ class DummyWeatherAPI:
         - Rate limiting (100 requests per hour)
         - Network delays
         - Occasional failures
-
-        Args:
-            city: City name
-
-        Returns:
-            Mock weather data
-
-        Raises:
-            Exception: When rate limit is exceeded or simulated failure occurs
         """
-        # Check rate limit first
+
         if not self.rate_limiter.can_make_request():
             remaining_time = self.rate_limiter.get_reset_time() - datetime.now(UTC)
             remaining_seconds = int(remaining_time.total_seconds())
@@ -315,16 +292,11 @@ class DummyWeatherAPI:
                 f"Try again in {remaining_seconds} seconds."
             )
 
-        # Record this request
         self.rate_limiter.record_request()
-
-        # Simulate network delay
-        import asyncio  # pylint: disable=import-outside-toplevel
 
         await asyncio.sleep(random.uniform(0.1, 0.3))
 
-        # Small chance of "API failure" for testing (not related to rate limiting)
-        if random.random() < 0.05:  # 5% chance of failure
+        if random.random() < 0.05:
             raise ValueError("Dummy API simulated server error")
 
         return self.generate_mock_weather_data(city)
@@ -332,9 +304,6 @@ class DummyWeatherAPI:
     def get_rate_limit_info(self) -> Dict[str, Any]:
         """
         Get current rate limit information.
-
-        Returns:
-            Dictionary with rate limit status
         """
         return {
             "requests_per_hour": self.rate_limiter.requests_per_hour,

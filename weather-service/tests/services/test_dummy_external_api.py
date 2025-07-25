@@ -34,7 +34,7 @@ class TestRateLimitTracker:
         """Test recording requests."""
         tracker = RateLimitTracker()
 
-        tracker.can_make_request()  # Initialize window
+        tracker.can_make_request()
         tracker.record_request()
         assert tracker.request_count == 1
 
@@ -50,7 +50,6 @@ class TestRateLimitTracker:
         assert tracker.can_make_request() is True
         tracker.record_request()
 
-        # Should be at limit now
         assert tracker.can_make_request() is False
         assert tracker.get_remaining_requests() == 0
 
@@ -58,16 +57,13 @@ class TestRateLimitTracker:
         """Test rate limit window reset after an hour."""
         tracker = RateLimitTracker(requests_per_hour=1)
 
-        # Make first request
         assert tracker.can_make_request() is True
         tracker.record_request()
         assert tracker.can_make_request() is False
 
-        # Simulate time passing (more than 1 hour)
         original_window = tracker.window_start
         tracker.window_start = datetime.now(UTC) - timedelta(hours=1, minutes=1)
 
-        # Should be able to make request again
         assert tracker.can_make_request() is True
         assert tracker.request_count == 0
         assert tracker.window_start > original_window
@@ -90,11 +86,9 @@ class TestRateLimitTracker:
         """Test getting reset time."""
         tracker = RateLimitTracker()
 
-        # Before any requests
         reset_time_before = tracker.get_reset_time()
         assert isinstance(reset_time_before, datetime)
 
-        # After making a request
         tracker.can_make_request()
         reset_time = tracker.get_reset_time()
         assert reset_time == tracker.window_start + timedelta(hours=1)
@@ -115,7 +109,6 @@ class TestDummyWeatherAPI:
         """Test weather pattern selection for cities."""
         api = DummyWeatherAPI()
 
-        # Test specific city patterns
         singapore_pattern = api.get_weather_pattern("Singapore")
         assert singapore_pattern["temp_range"] == (24, 32)
         assert singapore_pattern["humidity_range"] == (70, 90)
@@ -123,7 +116,6 @@ class TestDummyWeatherAPI:
         london_pattern = api.get_weather_pattern("London")
         assert london_pattern["temp_range"] == (5, 25)
 
-        # Test default pattern
         unknown_pattern = api.get_weather_pattern("Unknown City")
         assert unknown_pattern == api.CITY_WEATHER_PATTERNS["default"]
 
@@ -132,22 +124,20 @@ class TestDummyWeatherAPI:
         api = DummyWeatherAPI()
         base_temp = 20
 
-        # Test various hours
-        temp_6am = api.generate_temperature_curve(base_temp, 6)  # Lowest
-        temp_2pm = api.generate_temperature_curve(base_temp, 14)  # Highest
-        temp_10pm = api.generate_temperature_curve(base_temp, 22)  # Cooling
+        temp_6am = api.generate_temperature_curve(base_temp, 6)
+        temp_2pm = api.generate_temperature_curve(base_temp, 14)
+        temp_10pm = api.generate_temperature_curve(base_temp, 22)
 
-        assert temp_6am == base_temp  # At 6 AM, should be base temp
-        assert temp_2pm > temp_6am  # 2 PM should be warmer
-        assert temp_10pm < temp_2pm  # 10 PM should be cooler than 2 PM
+        assert temp_6am == base_temp
+        assert temp_2pm > temp_6am
+        assert temp_10pm < temp_2pm
 
     def test_select_weather_condition(self):
         """Test weather condition selection."""
         api = DummyWeatherAPI()
 
-        conditions = [(WeatherCondition.CLEAR, 1.0)]  # 100% probability
+        conditions = [(WeatherCondition.CLEAR, 1.0)]
 
-        # Should always return CLEAR with 100% probability
         for _ in range(10):
             assert (
                 api.select_weather_condition(conditions) == WeatherCondition.CLEAR.value
@@ -161,9 +151,8 @@ class TestDummyWeatherAPI:
 
         assert "result" in data
         assert "metadata" in data
-        assert len(data["result"]) == 24  # 24 hours
+        assert len(data["result"]) == 24
 
-        # Check first hour data
         hour_data = data["result"][0]
         assert hour_data["hour"] == 0
         assert "°C" in hour_data["temperature"]
@@ -171,7 +160,6 @@ class TestDummyWeatherAPI:
         assert "humidity" in hour_data
         assert "wind_speed" in hour_data
 
-        # Check metadata
         assert data["metadata"]["city"] == "London"
         assert data["metadata"]["api_version"] == "dummy-1.0"
         assert data["metadata"]["request_count"] == 1
@@ -181,8 +169,7 @@ class TestDummyWeatherAPI:
         """Test successful weather fetch."""
         api = DummyWeatherAPI()
 
-        # Mock to avoid random failures
-        with patch("random.random", return_value=0.99):  # Avoid 5% failure chance
+        with patch("random.random", return_value=0.99):
             result = await api.fetch_weather("Paris")
 
         assert "result" in result
@@ -194,11 +181,9 @@ class TestDummyWeatherAPI:
         """Test rate limiting behavior."""
         api = DummyWeatherAPI()
 
-        # Fill up the rate limit
         for _ in range(100):
             api.rate_limiter.record_request()
 
-        # Next request should fail
         with pytest.raises(ValueError, match="Rate limit exceeded"):
             await api.fetch_weather("London")
 
@@ -207,8 +192,7 @@ class TestDummyWeatherAPI:
         """Test simulated API failure."""
         api = DummyWeatherAPI()
 
-        # Mock to force failure
-        with patch("random.random", return_value=0.01):  # Force 5% failure
+        with patch("random.random", return_value=0.01):
             with pytest.raises(ValueError, match="simulated server error"):
                 await api.fetch_weather("London")
 
@@ -217,14 +201,12 @@ class TestDummyWeatherAPI:
         """Test that fetch_weather is decorated with circuit breaker."""
         api = DummyWeatherAPI()
 
-        # The circuit breaker decorator should be applied
         assert hasattr(api.fetch_weather, "__wrapped__")
 
     def test_get_rate_limit_info(self):
         """Test getting rate limit information."""
         api = DummyWeatherAPI()
 
-        # Make some requests
         api.rate_limiter.can_make_request()
         api.rate_limiter.record_request()
         api.rate_limiter.record_request()
@@ -251,7 +233,6 @@ class TestDummyWeatherAPI:
 
         hour_data = api._generate_hourly_data(12, base_data)
 
-        # Check all fields are present
         required_fields = [
             "hour",
             "temperature",
@@ -268,7 +249,6 @@ class TestDummyWeatherAPI:
         for field in required_fields:
             assert field in hour_data
 
-        # Check field types and ranges
         assert hour_data["hour"] == 12
         assert "°C" in hour_data["temperature"]
         assert isinstance(hour_data["humidity"], int)
@@ -285,7 +265,6 @@ class TestDummyWeatherAPI:
 
         for hour_data in data["result"]:
             assert "°C" in hour_data["temperature"]
-            # Extract numeric part to ensure it's a valid number
             temp_value = hour_data["temperature"].replace("°C", "").strip()
             assert temp_value.isdigit() or (
                 temp_value.startswith("-") and temp_value[1:].isdigit()

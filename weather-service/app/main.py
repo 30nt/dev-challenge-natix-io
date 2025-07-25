@@ -64,11 +64,9 @@ app.add_middleware(RequestIDMiddleware)
 
 Instrumentator().instrument(app).expose(app, endpoint="/prometheus-metrics")
 
-# Include API version routers
 app.include_router(v1_routes.router)
 app.include_router(v2_routes.router)
 
-# Include default router (v2) without prefix for backward compatibility
 app.include_router(v2_routes.router, prefix="", include_in_schema=False)
 
 if __name__ == "__main__":

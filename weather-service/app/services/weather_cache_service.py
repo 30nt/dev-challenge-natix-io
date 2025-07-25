@@ -25,9 +25,6 @@ class WeatherCacheService:
     def __init__(self, redis_client: redis.Redis):
         """
         Initialize weather cache service.
-
-        Args:
-            redis_client: Redis client instance
         """
         self.redis_client = redis_client
 
@@ -84,7 +81,6 @@ class WeatherCacheService:
 
             await self.redis_client.setex(key, ttl, json.dumps(weather_data))
 
-            # Set metadata
             meta_key = self._get_meta_key(city)
             await self.redis_client.setex(
                 meta_key, settings.redis_stale_ttl, datetime.now(UTC).isoformat()
@@ -110,15 +106,13 @@ class WeatherCacheService:
             key = self._get_weather_key(city, date)
             stale_key = f"{key}:stale"
 
-            # First check if we have dedicated stale data
             data = await self.redis_client.get(stale_key)
             if data:
                 return json.loads(data)
 
-            # If no stale data, check if primary data exists and copy it
             data = await self.redis_client.get(key)
             if data:
-                # Store as stale data for future use
+
                 await self.redis_client.setex(stale_key, settings.redis_stale_ttl, data)
                 return json.loads(data)
 

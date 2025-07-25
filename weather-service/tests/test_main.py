@@ -38,10 +38,8 @@ class TestMainApplication:
         """Test that API routers are included."""
         routes = [route.path for route in app.routes]
 
-        # Check v1 routes
         assert any("/v1/weather" in route for route in routes)
 
-        # Check v2 routes
         assert any("/v2/weather" in route for route in routes)
         assert any("/v2/health" in route for route in routes)
         assert any("/v2/metrics" in route for route in routes)

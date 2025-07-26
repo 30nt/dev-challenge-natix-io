@@ -5,22 +5,14 @@ This module defines the routes for API version 1.
 from fastapi import APIRouter, Query, Depends, HTTPException, Response
 
 from app.api.v1.crud import WeatherCRUD
-from app.middleware.dependency_container import container
 from app.schemas.api_v1 import WeatherResponse
 from app.services.weather_service import WeatherService, ApiVersion
+from app.utils.dependencies import get_weather_service
 from app.utils.logger import setup_logger
-
 
 logger = setup_logger(__name__)
 
 router = APIRouter(prefix=f"/{ApiVersion.V1.value}", tags=[ApiVersion.V1.value])
-
-
-def get_weather_service() -> WeatherService:
-    """
-    Dependency injection for UnifiedWeatherService.
-    """
-    return container.weather_service
 
 
 @router.get("/weather", response_model=WeatherResponse, deprecated=True)

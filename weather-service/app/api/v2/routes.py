@@ -4,32 +4,32 @@ This module defines the routes for API version 2.
 
 from datetime import datetime, UTC
 
+import redis.asyncio as redis
 from fastapi import APIRouter, Query, Request, HTTPException, Depends
 
 from app.api.v2.crud import WeatherCRUDV2
 from app.config import get_settings
-from app.middleware.dependency_container import container
 from app.schemas.api_v2 import (
     WeatherResponseV2,
     HealthResponse,
     MetricsResponse,
 )
-from app.services.weather_service import WeatherService, ApiVersion
-from app.utils.logger import setup_logger
 from app.services.dummy_external_api import dummy_weather_api
-
+from app.services.rate_limit_service import RateLimitService
+from app.services.request_stats_service import RequestStatsService
+from app.services.weather_service import WeatherService, ApiVersion
+from app.utils.dependencies import (
+    get_weather_service,
+    get_redis_client,
+    get_stats_tracker,
+    get_rate_limiter,
+)
+from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 settings = get_settings()
 
 router = APIRouter(prefix=f"/{ApiVersion.V2.value}", tags=[ApiVersion.V2.value])
-
-
-def get_weather_service() -> WeatherService:
-    """
-    Dependency injection for UnifiedWeatherService.
-    """
-    return container.weather_service
 
 
 @router.get("/weather", response_model=WeatherResponseV2)
@@ -70,13 +70,16 @@ async def get_weather_v2(
 
 
 @router.get("/health", response_model=HealthResponse)
-async def health_check(request: Request):
+async def health_check(
+    request: Request,
+    redis_client: redis.Redis = Depends(get_redis_client),
+):
     """
     Health check endpoint that returns service status.
     """
     redis_status = "healthy"
     try:
-        await container.redis_client.ping()
+        await redis_client.ping()
     except Exception:
         redis_status = "unhealthy"
 
@@ -94,12 +97,16 @@ async def health_check(request: Request):
 
 
 @router.get("/metrics", response_model=MetricsResponse)
-async def get_metrics(request: Request):
+async def get_metrics(
+    request: Request,
+    stats_tracker: RequestStatsService = Depends(get_stats_tracker),
+    rate_limiter: RateLimitService = Depends(get_rate_limiter),
+):
     """
     Metrics endpoint that returns rate limit status and top requested cities.
     """
-    top_cities = await container.stats_tracker.get_top_cities(10)
-    rate_limit_remaining = await container.rate_limiter.get_rate_limit_remaining()
+    top_cities = await stats_tracker.get_top_cities(10)
+    rate_limit_remaining = await rate_limiter.get_rate_limit_remaining()
 
     return MetricsResponse(
         rate_limit_remaining=rate_limit_remaining,

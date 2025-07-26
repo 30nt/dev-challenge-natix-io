@@ -13,7 +13,7 @@ from app.api.v1 import routes as v1_routes
 from app.api.v2 import routes as v2_routes
 from app.background.cache_warmer import start_cache_warmer
 from app.config import get_settings
-from app.middleware.dependency_container import container
+from app.utils.dependencies import get_redis_pool, close_redis_pool
 from app.middleware.request_id import RequestIDMiddleware
 from app.utils.logger import setup_logger
 
@@ -28,7 +28,8 @@ async def lifespan(fastapi_app: FastAPI):
     """
     logger.info("Starting Weather Service API...")
 
-    await container.initialize()
+    # Initialize Redis pool
+    await get_redis_pool()
 
     if settings.enable_cache_warming:
         fastapi_app.state.cache_warmer_task = await start_cache_warmer(fastapi_app)
@@ -40,7 +41,7 @@ async def lifespan(fastapi_app: FastAPI):
     if hasattr(fastapi_app.state, "cache_warmer_task"):
         fastapi_app.state.cache_warmer_task.cancel()
 
-    await container.close()
+    await close_redis_pool()
 
 
 app = FastAPI(

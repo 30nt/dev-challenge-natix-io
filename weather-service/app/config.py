@@ -2,75 +2,62 @@
 This module contains configuration settings for the application.
 """
 
-import os
 from functools import lru_cache
-from typing import Optional
+from typing import Optional, List
 
-from dotenv import load_dotenv
-from pydantic_settings import BaseSettings
-
-load_dotenv()
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """
-    This class handles configuration settings.
+    Application configuration using Pydantic BaseSettings.
+    Automatically handles environment variable parsing and type conversion.
     """
 
-    app_name: str = os.getenv("APP_NAME", "Weather Service API")
-    app_version: str = os.getenv("APP_VERSION", "1.0.0")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-    weather_api_url: str = os.getenv(
-        "WEATHER_API_URL", "https://api.example.com/weather"
-    )
-    weather_api_timeout: int = int(os.getenv("WEATHER_API_TIMEOUT", "10"))
+    # Application settings
+    app_name: str = "Weather Service API"
+    app_version: str = "1.0.0"
+    log_level: str = "INFO"
 
-    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379")
-    redis_cache_ttl: int = int(os.getenv("REDIS_CACHE_TTL", "3600"))
-    redis_stale_ttl: int = int(os.getenv("REDIS_STALE_TTL", "86400"))
-    redis_decode_responses: bool = (
-        os.getenv("REDIS_DECODE_RESPONSES", "true").lower() == "true"
-    )
+    # External API settings
+    weather_api_url: str = "https://api.example.com/weather"
+    weather_api_timeout: int = 10
 
-    rate_limit_requests: int = int(os.getenv("RATE_LIMIT_REQUESTS", "100"))
-    rate_limit_window: int = int(os.getenv("RATE_LIMIT_WINDOW", "3600"))
+    # Redis settings
+    redis_url: str = "redis://localhost:6379"
+    redis_cache_ttl: int = 3600
+    redis_stale_ttl: int = 86400
+    redis_decode_responses: bool = True
 
-    log_level: str = os.getenv("LOG_LEVEL", "INFO")
-    enable_cache_warming: bool = (
-        os.getenv("ENABLE_CACHE_WARMING", "true").lower() == "true"
-    )
-    cache_warm_interval: int = int(os.getenv("CACHE_WARM_INTERVAL", "3600"))
-    top_cities_count: int = int(os.getenv("TOP_CITIES_COUNT", "10"))
-    cache_warm_max_tokens: int = int(os.getenv("CACHE_WARM_MAX_TOKENS", "20"))
-    cache_warm_min_tokens_remaining: int = int(
-        os.getenv("CACHE_WARM_MIN_TOKENS_REMAINING", "50")
-    )
+    # Rate limiting settings
+    rate_limit_requests: int = 100
+    rate_limit_window: int = 3600
 
-    circuit_breaker_failure_threshold: int = int(
-        os.getenv("CIRCUIT_BREAKER_FAILURE_THRESHOLD", "5")
-    )
-    circuit_breaker_recovery_timeout: int = int(
-        os.getenv("CIRCUIT_BREAKER_RECOVERY_TIMEOUT", "300")
-    )
-    circuit_breaker_expected_exception: Optional[str] = os.getenv(
-        "CIRCUIT_BREAKER_EXPECTED_EXCEPTION"
-    )
+    # Cache warming settings
+    enable_cache_warming: bool = True
+    cache_warm_interval: int = 3600
+    top_cities_count: int = 10
+    cache_warm_max_tokens: int = 20
+    cache_warm_min_tokens_remaining: int = 50
 
-    retry_max_attempts: int = int(os.getenv("RETRY_MAX_ATTEMPTS", "3"))
-    retry_wait_fixed: int = int(os.getenv("RETRY_WAIT_FIXED", "1"))
-    retry_wait_random_min: int = int(os.getenv("RETRY_WAIT_RANDOM_MIN", "0"))
-    retry_wait_random_max: int = int(os.getenv("RETRY_WAIT_RANDOM_MAX", "2"))
+    # Circuit breaker settings
+    circuit_breaker_failure_threshold: int = 5
+    circuit_breaker_recovery_timeout: int = 300
+    circuit_breaker_expected_exception: Optional[str] = None
 
-    cors_origins: list[str] = os.getenv("CORS_ORIGINS", '["*"]').strip('"[]').split(",")
-    cors_allow_credentials: bool = (
-        os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
-    )
-    cors_allow_methods: list[str] = (
-        os.getenv("CORS_ALLOW_METHODS", '["*"]').strip('"[]').split(",")
-    )
-    cors_allow_headers: list[str] = (
-        os.getenv("CORS_ALLOW_HEADERS", '["*"]').strip('"[]').split(",")
-    )
+    # Retry settings
+    retry_max_attempts: int = 3
+    retry_wait_fixed: int = 1
+    retry_wait_random_min: int = 0
+    retry_wait_random_max: int = 2
+
+    # CORS settings
+    cors_origins: List[str] = ["*"]
+    cors_allow_credentials: bool = True
+    cors_allow_methods: List[str] = ["*"]
+    cors_allow_headers: List[str] = ["*"]
 
 
 @lru_cache()

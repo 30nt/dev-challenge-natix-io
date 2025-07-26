@@ -36,7 +36,15 @@ class RateLimitService:
         )
         self.rate_limits = parse_many(self.rate_limit_str)
 
-        logger.info("Initialized rate limiter with limit: %s", self.rate_limit_str)
+        window_seconds = settings.rate_limit_window
+        logger.info(
+            "Initialized rate limiter",
+            extra={
+                "event": "rate_limiter_init",
+                "limit": self.rate_limit_str,
+                "window_seconds": window_seconds,
+            },
+        )
 
     async def get_rate_limit_remaining(self, identifier: str = "global") -> int:
         """
@@ -53,7 +61,15 @@ class RateLimitService:
             return remaining
 
         except Exception as e:
-            logger.error("Error getting rate limit remaining: %s", e)
+            logger.error(
+                "Error getting rate limit remaining",
+                extra={
+                    "event": "rate_limit_error",
+                    "operation": "get_remaining",
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
             return 0
 
     async def consume_rate_limit_token(self, identifier: str = "global") -> bool:
@@ -67,14 +83,30 @@ class RateLimitService:
             for rate_limit in self.rate_limits:
                 if not self.limiter.hit(rate_limit, identifier):
                     logger.warning(
-                        "Rate limit exceeded for %s: %s", identifier, rate_limit
+                        "Rate limit exceeded",
+                        extra={
+                            "event": "rate_limit_exceeded",
+                            "identifier": identifier,
+                            "limit": str(rate_limit),
+                        },
                     )
                     return False
 
-            logger.debug("Rate limit token consumed for %s", identifier)
+            logger.debug(
+                "Rate limit token consumed",
+                extra={"event": "rate_limit_consumed", "identifier": identifier},
+            )
             return True
 
         except Exception as e:
-            logger.error("Error consuming rate limit token: %s", e)
+            logger.error(
+                "Error consuming rate limit token",
+                extra={
+                    "event": "rate_limit_error",
+                    "operation": "consume_token",
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
 
             return False

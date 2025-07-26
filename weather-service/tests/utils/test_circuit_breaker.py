@@ -11,10 +11,18 @@ from app.exceptions import CircuitBreakerOpenException
 
 
 class TestCircuitBreaker:
-    """Test cases for the circuit breaker."""
+    """Test suite for circuit breaker pattern implementation.
+
+    Validates state transitions, failure detection, and recovery
+    mechanisms for protecting external service calls.
+    """
 
     def test_initial_state(self):
-        """Test circuit breaker starts in closed state."""
+        """Test circuit breaker initialization in closed state.
+
+        Verifies that new circuit breakers start in the closed state,
+        allowing normal operation with zero failure count.
+        """
         cb = CircuitBreaker(failure_threshold=3, recovery_timeout=60)
 
         assert cb.state == CircuitState.CLOSED.value
@@ -22,7 +30,12 @@ class TestCircuitBreaker:
 
     @pytest.mark.asyncio
     async def test_successful_calls(self):
-        """Test circuit breaker with successful calls."""
+        """Test circuit remains closed during successful operations.
+
+        Validates that consecutive successful calls keep the circuit
+        closed and reset any previous failure counts, allowing
+        continuous normal operation.
+        """
         cb = CircuitBreaker(failure_threshold=3)
 
         @cb
@@ -38,7 +51,12 @@ class TestCircuitBreaker:
 
     @pytest.mark.asyncio
     async def test_circuit_opens_after_failures(self):
-        """Test circuit opens after reaching failure threshold."""
+        """Test circuit opening after consecutive failures.
+
+        Verifies that the circuit breaker transitions to open state
+        after the failure threshold is reached, blocking subsequent
+        calls to protect the failing service from overload.
+        """
         cb = CircuitBreaker(failure_threshold=3, expected_exception=ValueError)
 
         @cb
@@ -57,7 +75,12 @@ class TestCircuitBreaker:
 
     @pytest.mark.asyncio
     async def test_circuit_half_open_after_timeout(self):
-        """Test circuit transitions to half-open after recovery timeout."""
+        """Test recovery attempt after timeout period.
+
+        Validates the half-open state mechanism where the circuit
+        allows a test request after the recovery timeout. Success
+        closes the circuit, while failure would reopen it.
+        """
         cb = CircuitBreaker(failure_threshold=2, recovery_timeout=1)
 
         @cb
@@ -79,7 +102,12 @@ class TestCircuitBreaker:
         assert cb.state == CircuitState.CLOSED.value
 
     def test_decorator_usage(self):
-        """Test circuit breaker as decorator."""
+        """Test circuit breaker decorator functionality.
+
+        Ensures the circuit breaker can be used as a decorator
+        without affecting the wrapped function's behavior during
+        normal operation.
+        """
         cb = CircuitBreaker(
             failure_threshold=2, recovery_timeout=30, name="test_breaker"
         )
@@ -91,7 +119,12 @@ class TestCircuitBreaker:
         assert asyncio.run(decorated_operation()) == "success"
 
     def test_sync_function_wrapper(self):
-        """Test that circuit breaker raises error for sync functions."""
+        """Test circuit breaker validation for async-only support.
+
+        Verifies that attempting to decorate synchronous functions
+        raises an appropriate error, as the circuit breaker is
+        designed specifically for async operations.
+        """
         cb = CircuitBreaker(failure_threshold=2)
 
         with pytest.raises(

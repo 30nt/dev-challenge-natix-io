@@ -48,7 +48,17 @@ async def get_weather_v2(
         return WeatherCRUDV2.transform_internal(weather_data)
 
     except Exception as e:
-        logger.error("Error getting weather for %s: %s", city, e)
+        logger.error(
+            "Error getting weather",
+            extra={
+                "event": "api_error",
+                "api_version": "v2",
+                "city": city,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "request_id": request.state.request_id,
+            },
+        )
         raise HTTPException(
             status_code=500,
             detail={

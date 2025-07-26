@@ -68,7 +68,15 @@ class WeatherService:
 
         cached_data = await self.weather_cache.get_weather(city, today_date)
         if cached_data:
-            logger.info("Cache hit for %s", city)
+            logger.info(
+                "Cache hit",
+                extra={
+                    "city": city,
+                    "event": "cache_hit",
+                    "source": "redis",
+                    "date": today_date,
+                },
+            )
             await self.stats_tracker.increment_stats(city)
             return self._build_response(
                 city=city,
@@ -79,11 +87,17 @@ class WeatherService:
                 version=version,
             )
 
-        logger.info("Cache miss for %s", city)
+        logger.info(
+            "Cache miss",
+            extra={"city": city, "event": "cache_miss", "date": today_date},
+        )
 
         if await self.rate_limiter.consume_rate_limit_token():
             try:
-                logger.info("Fetching weather from external API for %s", city)
+                logger.info(
+                    "Fetching weather from external API",
+                    extra={"city": city, "event": "api_call", "api": "weather"},
+                )
                 external_data = await dummy_weather_api.fetch_weather(city)
 
                 if external_data:
@@ -100,10 +114,23 @@ class WeatherService:
                         version=version,
                     )
             except Exception as e:
-                logger.error("Failed to fetch weather from external API: %s", e)
+                logger.error(
+                    "Failed to fetch weather from external API",
+                    extra={
+                        "city": city,
+                        "event": "api_error",
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                    },
+                )
 
         logger.warning(
-            "Rate limited or API failed, checking for stale data for %s", city
+            "Rate limited or API failed, checking for stale data",
+            extra={
+                "city": city,
+                "event": "fallback_stale",
+                "reason": "rate_limit_or_api_failure",
+            },
         )
         stale_data = await self.weather_cache.get_stale_weather(city, today_date)
 

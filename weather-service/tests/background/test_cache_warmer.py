@@ -18,11 +18,19 @@ from app.definitions.data_sources import ApiVersion
 
 
 class TestCacheWarmer:
-    """Test cases for cache warmer functionality."""
+    """Test suite for background cache warming functionality.
+
+    Validates the cache warmer's ability to proactively refresh
+    weather data for popular cities during low-traffic periods.
+    """
 
     @pytest.mark.asyncio
     async def test_warm_single_city_success(self):
-        """Test successful cache warming for a single city."""
+        """Test successful cache warming for individual city.
+
+        Verifies that the cache warmer correctly calls the weather
+        service to refresh data for a specified city using the V2 API.
+        """
         weather_service = AsyncMock()
         semaphore = asyncio.Semaphore(1)
 
@@ -32,7 +40,12 @@ class TestCacheWarmer:
 
     @pytest.mark.asyncio
     async def test_get_cities_to_warm_with_stats(self):
-        """Test getting cities to warm with statistics available."""
+        """Test city selection based on request statistics.
+
+        Validates that the cache warmer prioritizes cities by
+        request frequency and filters out already-cached entries
+        to optimize rate limit token usage.
+        """
         stats_tracker = AsyncMock()
         stats_tracker.get_top_cities.return_value = [
             ("London", 100),
@@ -55,7 +68,12 @@ class TestCacheWarmer:
 
     @pytest.mark.asyncio
     async def test_get_cities_to_warm_no_stats(self):
-        """Test getting cities to warm without statistics."""
+        """Test fallback behavior when no statistics exist.
+
+        Ensures the cache warmer uses default city list when
+        request statistics are unavailable, typically during
+        initial deployment or after stats reset.
+        """
         stats_tracker = AsyncMock()
         stats_tracker.get_top_cities.return_value = []
 
@@ -66,7 +84,12 @@ class TestCacheWarmer:
 
     @pytest.mark.asyncio
     async def test_warm_cache_insufficient_tokens(self):
-        """Test cache warming with insufficient tokens."""
+        """Test rate limit preservation during cache warming.
+
+        Validates that cache warming respects minimum token
+        thresholds to ensure sufficient capacity remains for
+        real-time user requests.
+        """
         app = MagicMock()
 
         with patch("app.background.cache_warmer.container") as mock_container:

@@ -49,5 +49,14 @@ async def get_weather_v1(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Error in V1 weather endpoint: %s", str(e))
+        logger.error(
+            "Error in V1 weather endpoint",
+            extra={
+                "event": "api_error",
+                "api_version": "v1",
+                "city": city,
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+        )
         raise HTTPException(status_code=500, detail="Internal server error") from e

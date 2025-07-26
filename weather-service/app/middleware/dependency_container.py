@@ -2,8 +2,6 @@
 This module provides a dependency container for the application.
 """
 
-import redis.asyncio as redis
-
 from app.config import get_settings
 from app.services.queue_service import QueueService
 from app.services.rate_limit_service import RateLimitService
@@ -11,6 +9,7 @@ from app.services.request_stats_service import RequestStatsService
 from app.services.weather_cache_service import WeatherCacheService
 from app.services.weather_service import WeatherService
 from app.utils.logger import setup_logger
+from app.utils.resilience import ResilientRedisPool
 
 logger = setup_logger(__name__)
 settings = get_settings()
@@ -27,6 +26,7 @@ class DependencyContainer:
         """
         Initialize container with empty services.
         """
+        self.redis_pool = None
         self.redis_client = None
         self.weather_cache = None
         self.rate_limiter = None
@@ -39,11 +39,10 @@ class DependencyContainer:
         Initialize Redis connection and all services.
         """
         try:
+            self.redis_pool = ResilientRedisPool(settings.redis_url)
+            self.redis_client = await self.redis_pool.get_client()
 
-            self.redis_client = redis.from_url(
-                settings.redis_url, decode_responses=settings.redis_decode_responses
-            )
-            await self.redis_client.ping()
+            await self.redis_pool.health_check()
 
             self.weather_cache = WeatherCacheService(self.redis_client)
             self.rate_limiter = RateLimitService(self.redis_client)
@@ -65,11 +64,11 @@ class DependencyContainer:
 
     async def close(self):
         """
-        Close Redis connection.
+        Close Redis connection pool.
         """
-        if self.redis_client:
-            await self.redis_client.close()
-            logger.info("Redis connection closed")
+        if self.redis_pool:
+            await self.redis_pool.close()
+            logger.info("Redis connection pool closed")
 
 
 container = DependencyContainer()

@@ -63,7 +63,15 @@ class CircuitBreaker:
         """Record successful call."""
         self._failure_count = 0
         self._state = CircuitState.CLOSED
-        logger.debug("Circuit breaker '%s' recorded success, state: CLOSED", self.name)
+        logger.debug(
+            "Circuit breaker recorded success",
+            extra={
+                "event": "circuit_breaker_success",
+                "circuit_name": self.name,
+                "state": "CLOSED",
+                "failure_count": 0,
+            },
+        )
 
     def _record_failure(self):
         """Record failed call."""
@@ -73,16 +81,29 @@ class CircuitBreaker:
         if self._failure_count >= self.failure_threshold:
             self._state = CircuitState.OPEN
             logger.warning(
-                "Circuit breaker '%s' opened after %s failures",
-                self.name,
-                self._failure_count,
+                "Circuit breaker opened",
+                extra={
+                    "event": "circuit_breaker_opened",
+                    "circuit_name": self.name,
+                    "failure_count": self._failure_count,
+                    "threshold": self.failure_threshold,
+                    "state": "OPEN",
+                },
             )
 
     def _get_state(self) -> CircuitState:
         """Get current state, checking if we should transition to half-open."""
         if self._state == CircuitState.OPEN and self._should_attempt_reset():
             self._state = CircuitState.HALF_OPEN
-            logger.debug("Circuit breaker '%s' half-open, attempting reset", self.name)
+            logger.debug(
+                "Circuit breaker half-open, attempting reset",
+                extra={
+                    "event": "circuit_breaker_half_open",
+                    "circuit_name": self.name,
+                    "state": "HALF_OPEN",
+                    "recovery_timeout": self.recovery_timeout,
+                },
+            )
         return self._state
 
     def __call__(self, func: Callable) -> Callable:
@@ -98,7 +119,15 @@ class CircuitBreaker:
 
             if state == CircuitState.OPEN:
                 error_msg = f"Circuit breaker '{self.name}' is OPEN"
-                logger.error(error_msg)
+                logger.error(
+                    "Circuit breaker is open",
+                    extra={
+                        "event": "circuit_breaker_blocked",
+                        "circuit_name": self.name,
+                        "state": "OPEN",
+                        "failure_count": self._failure_count,
+                    },
+                )
                 raise CircuitBreakerOpenException(error_msg)
 
             try:

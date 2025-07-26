@@ -15,7 +15,11 @@ from app.services.weather_service import WeatherService, ApiVersion
 
 @pytest.fixture
 def mock_dependencies():
-    """Create mock dependencies for weather service."""
+    """Create mock dependencies for weather service testing.
+
+    Returns:
+        tuple: Mocked (weather_cache, rate_limiter, stats_tracker, queue_manager)
+    """
     weather_cache = AsyncMock()
     rate_limiter = AsyncMock()
     stats_tracker = AsyncMock()
@@ -26,14 +30,25 @@ def mock_dependencies():
 
 @pytest.fixture
 def weather_service(mock_dependencies):
-    """Create a UnifiedWeatherService instance with mocked dependencies."""
+    """Create a WeatherService instance with mocked dependencies.
+
+    Args:
+        mock_dependencies: Tuple of mocked service dependencies
+
+    Returns:
+        WeatherService: Configured service instance for testing
+    """
     weather_cache, rate_limiter, stats_tracker, queue_manager = mock_dependencies
     return WeatherService(weather_cache, rate_limiter, stats_tracker, queue_manager)
 
 
 @pytest.fixture
 def sample_weather_data():
-    """Sample weather data for testing."""
+    """Provide sample weather data for test scenarios.
+
+    Returns:
+        list: Hourly weather data with temperature and conditions
+    """
     return [
         {"hour": 0, "temperature": "18°C", "condition": "Clear"},
         {"hour": 1, "temperature": "17°C", "condition": "Clear"},
@@ -42,10 +57,20 @@ def sample_weather_data():
 
 
 class TestWeatherServiceV1:
-    """Test cases for WeatherService."""
+    """Test suite for WeatherService V1 API functionality.
+
+    Validates cache interactions, external API calls, rate limiting,
+    and fallback mechanisms for the V1 weather data format.
+    """
 
     async def test_get_weather_cache_hit(self, weather_service, sample_weather_data):
-        """Test getting weather when data is in cache."""
+        """Test successful weather retrieval from cache.
+
+        Verifies that when weather data exists in cache:
+        - Data is returned without external API calls
+        - Temperature units are stripped for V1 format
+        - Request statistics are properly tracked
+        """
         weather_service.weather_cache.get_weather.return_value = {
             "weather": sample_weather_data
         }
@@ -65,7 +90,14 @@ class TestWeatherServiceV1:
     async def test_get_weather_cache_miss_api_success(
         self, weather_service, sample_weather_data
     ):
-        """Test getting weather when cache misses but API call succeeds."""
+        """Test cache miss with successful external API fallback.
+
+        Validates the flow when cache doesn't contain data:
+        - Rate limit token is consumed
+        - External API is called
+        - Fresh data is cached for future requests
+        - Correct response format is returned
+        """
         weather_service.weather_cache.get_weather.return_value = None
         weather_service.rate_limiter.consume_rate_limit_token.return_value = True
 

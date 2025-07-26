@@ -14,14 +14,23 @@ settings = get_settings()
 
 @pytest.mark.asyncio
 class TestRateLimitService:
-    """Test cases for the rate limiting service."""
+    """Test suite for distributed rate limiting service.
+
+    Validates rate limit enforcement, token consumption,
+    and error handling for the Redis-backed rate limiter.
+    """
 
     @patch("app.services.rate_limit_service.RedisStorage")
     @patch("app.services.rate_limit_service.MovingWindowRateLimiter")
     async def test_consume_rate_limit_token_success(
         self, mock_limiter_class, mock_storage_class
     ):
-        """Test successful token consumption."""
+        """Test successful rate limit token consumption.
+
+        Verifies that when rate limit capacity is available,
+        tokens are consumed successfully and the operation
+        is allowed to proceed.
+        """
 
         mock_storage = MagicMock()
         mock_storage_class.return_value = mock_storage
@@ -42,7 +51,12 @@ class TestRateLimitService:
     async def test_consume_rate_limit_token_exceeded(
         self, mock_limiter_class, mock_storage_class
     ):
-        """Test token consumption when rate limit is exceeded."""
+        """Test rate limit enforcement when capacity exhausted.
+
+        Validates that when the rate limit is exceeded,
+        token consumption fails gracefully and the
+        operation is blocked to protect the system.
+        """
 
         mock_storage = MagicMock()
         mock_storage_class.return_value = mock_storage
@@ -63,7 +77,12 @@ class TestRateLimitService:
     async def test_consume_rate_limit_token_error_handling(
         self, mock_limiter_class, mock_storage_class
     ):
-        """Test error handling in token consumption."""
+        """Test graceful degradation on rate limiter errors.
+
+        Ensures that when the rate limiting infrastructure
+        encounters errors, the service fails closed (denies
+        requests) to prevent overwhelming downstream services.
+        """
 
         mock_storage = MagicMock()
         mock_storage_class.return_value = mock_storage

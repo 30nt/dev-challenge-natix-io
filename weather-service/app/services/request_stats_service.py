@@ -47,13 +47,33 @@ class RequestStatsService:
 
         except redis.ConnectionError:
             logger.error(
-                "Redis connection failed while incrementing stats for %s", city
+                "Redis connection failed while incrementing stats",
+                extra={
+                    "event": "stats_increment_error",
+                    "city": city,
+                    "error_type": "ConnectionError",
+                },
             )
             raise
         except redis.TimeoutError:
-            logger.warning("Redis timeout while incrementing stats for %s", city)
+            logger.warning(
+                "Redis timeout while incrementing stats",
+                extra={
+                    "event": "stats_increment_timeout",
+                    "city": city,
+                    "error_type": "TimeoutError",
+                },
+            )
         except Exception as e:
-            logger.error("Unexpected error incrementing stats for %s: %s", city, e)
+            logger.error(
+                "Unexpected error incrementing stats",
+                extra={
+                    "event": "stats_increment_error",
+                    "city": city,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
 
     async def get_top_cities(self, count: int = 50) -> List[tuple[str, int]]:
         """
@@ -73,13 +93,26 @@ class RequestStatsService:
             ]
 
         except redis.ConnectionError:
-            logger.error("Redis connection failed while getting top cities")
+            logger.error(
+                "Redis connection failed while getting top cities",
+                extra={"event": "stats_get_top_error", "error_type": "ConnectionError"},
+            )
             raise
         except redis.TimeoutError:
-            logger.warning("Redis timeout while getting top cities")
+            logger.warning(
+                "Redis timeout while getting top cities",
+                extra={"event": "stats_get_top_timeout", "error_type": "TimeoutError"},
+            )
             return []
         except Exception as e:
-            logger.error("Unexpected error getting top cities: %s", e)
+            logger.error(
+                "Unexpected error getting top cities",
+                extra={
+                    "event": "stats_get_top_error",
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
             return []
 
     async def get_city_stats(self, city: str) -> int:
@@ -91,11 +124,33 @@ class RequestStatsService:
             return int(score) if score else 0
 
         except redis.ConnectionError:
-            logger.error("Redis connection failed while getting stats for %s", city)
+            logger.error(
+                "Redis connection failed while getting stats",
+                extra={
+                    "event": "stats_get_city_error",
+                    "city": city,
+                    "error_type": "ConnectionError",
+                },
+            )
             raise
         except redis.TimeoutError:
-            logger.warning("Redis timeout while getting stats for %s", city)
+            logger.warning(
+                "Redis timeout while getting stats",
+                extra={
+                    "event": "stats_get_city_timeout",
+                    "city": city,
+                    "error_type": "TimeoutError",
+                },
+            )
             return 0
         except Exception as e:
-            logger.error("Unexpected error getting stats for %s: %s", city, e)
+            logger.error(
+                "Unexpected error getting stats",
+                extra={
+                    "event": "stats_get_city_error",
+                    "city": city,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
             return 0

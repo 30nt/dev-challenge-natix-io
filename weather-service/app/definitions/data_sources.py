@@ -11,8 +11,8 @@ class ApiVersion(Enum):
     V2 = "v2"
 
 
-DataSource = Literal["cache", "api"]
-DataFreshness = Literal["fresh", "stale"]
+DataSource = Literal["cache", "api", "unavailable"]
+DataFreshness = Literal["fresh", "stale", "unavailable"]
 TemperatureUnit = Literal["celsius", "fahrenheit"]
 
 DEFAULT_CITIES: List[str] = [

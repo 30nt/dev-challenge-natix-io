@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "weather-service"
 version = "1.0.0"
-description = "A resilient weather service API with intelligent caching and rate limiting"
+description = "A demo weather service API with intelligent caching and rate limiting"
 authors = ["Volodymyr Zontov <zontovv@outlook.com>"]
 readme = "README.md"
 
@@ -9,7 +9,7 @@ readme = "README.md"
 python = "^3.11"
 fastapi = "^0.109.0"
 uvicorn = {extras = ["standard"], version = "^0.27.0"}
-redis = "^5.0.1"
+redis = "^4.6.0"
 httpx = "^0.26.0"
 pydantic = "^2.5.0"
 pydantic-settings = "^2.1.0"
@@ -50,7 +50,8 @@ disable = [
     "missing-class-docstring",
     "unused-argument",
     "redefined-outer-name",
-    "protected-access"
+    "protected-access",
+    "duplicate-code",
 ]
 
 [tool.pylint.format]

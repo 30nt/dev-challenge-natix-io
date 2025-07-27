@@ -28,7 +28,6 @@ async def lifespan(fastapi_app: FastAPI):
     """
     logger.info("Starting Weather Service API...")
 
-    # Initialize Redis pool
     await get_redis_pool()
 
     if settings.enable_cache_warming:
@@ -67,6 +66,7 @@ Instrumentator().instrument(app).expose(app, endpoint="/prometheus-metrics")
 
 app.include_router(v1_routes.router)
 app.include_router(v2_routes.router)
+app.include_router(v2_routes.default_router)
 
 if __name__ == "__main__":
     uvicorn.run(

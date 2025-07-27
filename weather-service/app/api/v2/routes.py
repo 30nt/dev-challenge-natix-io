@@ -7,7 +7,6 @@ from datetime import datetime, UTC
 import redis.asyncio as redis
 from fastapi import APIRouter, Query, Request, HTTPException, Depends
 
-from app.api.v2.crud import WeatherCRUDV2
 from app.config import get_settings
 from app.schemas.api_v2 import (
     WeatherResponseV2,
@@ -17,7 +16,8 @@ from app.schemas.api_v2 import (
 from app.services.dummy_external_api import dummy_weather_api
 from app.services.rate_limit_service import RateLimitService
 from app.services.request_stats_service import RequestStatsService
-from app.services.weather_service import WeatherService, ApiVersion
+from app.services.weather_service import WeatherService
+from app.definitions.data_sources import ApiVersion
 from app.utils.dependencies import (
     get_weather_service,
     get_redis_client,
@@ -30,6 +30,7 @@ logger = setup_logger(__name__)
 settings = get_settings()
 
 router = APIRouter(prefix=f"/{ApiVersion.V2.value}", tags=[ApiVersion.V2.value])
+default_router = APIRouter(tags=["default"])
 
 
 @router.get("/weather", response_model=WeatherResponseV2)
@@ -45,7 +46,7 @@ async def get_weather_v2(
     """
     try:
         weather_data = await weather_service.get_weather(city, ApiVersion.V2)
-        return WeatherCRUDV2.transform_internal(weather_data)
+        return weather_data
 
     except Exception as e:
         logger.error(
@@ -114,3 +115,8 @@ async def get_metrics(
         circuit_breaker_status=dummy_weather_api.circuit_breaker.state,
         top_cities=[{"city": city, "requests": count} for city, count in top_cities],
     )
+
+
+default_router.get("/weather", response_model=WeatherResponseV2)(get_weather_v2)
+default_router.get("/health", response_model=HealthResponse)(health_check)
+default_router.get("/metrics", response_model=MetricsResponse)(get_metrics)

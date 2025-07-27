@@ -7,7 +7,6 @@ from typing import Optional, List, Union
 
 from app.config import get_settings
 from app.definitions.data_sources import ApiVersion
-from app.exceptions import RateLimitExceededException
 from app.schemas.api_v1 import WeatherResponse, HourlyWeather
 from app.schemas.api_v2 import WeatherResponseV2, WeatherMetadata, HourlyWeatherV2
 from app.services.dummy_external_api import dummy_weather_api
@@ -101,8 +100,9 @@ class WeatherService:
                 external_data = await dummy_weather_api.fetch_weather(city)
 
                 if external_data:
+                    cache_data = {"weather": external_data["result"]}
                     await self.weather_cache.set_weather(
-                        city=city, date=today_date, weather_data=external_data
+                        city=city, date=today_date, weather_data=cache_data
                     )
 
                     return self._build_response(
@@ -147,8 +147,24 @@ class WeatherService:
 
         await self.queue_manager.add_to_queue(city, priority=10)
 
-        raise RateLimitExceededException(
-            "Weather data unavailable. Request has been queued."
+        logger.warning(
+            "No data available due to rate limiting",
+            extra={
+                "city": city,
+                "event": "rate_limit_no_data",
+                "date": today_date,
+            },
+        )
+
+        return self._build_response(
+            city=city,
+            date_str=today_date,
+            weather_data=[],  # Empty weather data
+            source="unavailable",
+            freshness="unavailable",
+            warning="Weather data temporarily unavailable. "
+            "Your request has been queued for processing.",
+            version=version,
         )
 
     def _build_response(

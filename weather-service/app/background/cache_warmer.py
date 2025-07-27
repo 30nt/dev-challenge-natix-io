@@ -109,7 +109,6 @@ async def warm_cache(app):  # pylint: disable=unused-argument,too-many-locals
     redis_pool = await get_redis_pool()
     redis_client = await redis_pool.get_client()
 
-    # Create service instances directly since we're not in FastAPI request context
     weather_cache = WeatherCacheService(redis_client)
     rate_limiter = RateLimitService(redis_client)
     stats_tracker = RequestStatsService(redis_client)
@@ -117,7 +116,7 @@ async def warm_cache(app):  # pylint: disable=unused-argument,too-many-locals
         weather_cache=weather_cache,
         rate_limiter=rate_limiter,
         stats_tracker=stats_tracker,
-        queue_manager=None,  # Not needed for cache warming
+        queue_manager=None,  # Not needed for cache warming in Demo
     )
 
     try:

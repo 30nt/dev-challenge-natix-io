@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.exceptions import RateLimitExceededException
 from app.schemas.api_v1 import WeatherResponse
 from app.schemas.api_v2 import WeatherResponseV2
 from app.services.weather_service import WeatherService, ApiVersion
@@ -137,9 +136,10 @@ class TestWeatherServiceV1:
         weather_service.rate_limiter.consume_rate_limit_token.return_value = False
         weather_service.weather_cache.get_stale_weather.return_value = None
 
-        with pytest.raises(RateLimitExceededException):
-            await weather_service.get_weather("London", ApiVersion.V1)
+        result = await weather_service.get_weather("London", ApiVersion.V1)
 
+        assert isinstance(result, WeatherResponse)
+        assert len(result.weather) == 0  # Empty weather data
         weather_service.queue_manager.add_to_queue.assert_called_once_with(
             "London", priority=10
         )

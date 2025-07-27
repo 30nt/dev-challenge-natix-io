@@ -273,12 +273,6 @@ class ResilientRedisPool:
                 self.redis_url,
                 max_connections=self.max_connections,
                 decode_responses=settings.redis_decode_responses,
-                socket_keepalive=True,
-                socket_keepalive_options={
-                    1: 1,
-                    2: 30,
-                    3: 5,
-                },
             )
             self._client = redis.Redis(connection_pool=self._pool)
 
